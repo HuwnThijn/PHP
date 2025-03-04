@@ -10,13 +10,11 @@ return new class extends Migration
     public function up()
     {
         Schema::create('order_items', function (Blueprint $table) {
-            $table->id('id_order_item');
+            $table->id('id_order_item')->unique();
             $table->unsignedBigInteger('id_order');
             $table->unsignedBigInteger('id_cosmetic');
             $table->integer('quantity');
             $table->decimal('unit_price', 10, 2);
-            $table->foreign('id_order')->references('id_order')->on('orders');
-            $table->foreign('id_cosmetic')->references('id_cosmetic')->on('cosmetics');
             $table->timestamps();
         });
     }

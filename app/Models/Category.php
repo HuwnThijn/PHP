@@ -14,6 +14,6 @@ class Category extends Model
     
     public function cosmetics()
     {
-        return $this->hasMany(Cosmestic::class, 'id_category');
+        return $this->hasMany(Cosmetic::class, 'id_category');
     }
 }

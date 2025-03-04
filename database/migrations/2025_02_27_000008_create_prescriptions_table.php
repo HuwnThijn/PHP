@@ -10,14 +10,13 @@ return new class extends Migration
     public function up()
     {
         Schema::create('prescriptions', function (Blueprint $table) {
-            $table->id('id_prescription');
+            $table->id('id_prescription')->unique();
             $table->unsignedBigInteger('id_medical_record');
             $table->string('medicine', 100);
             $table->string('dosage', 100);
             $table->string('frequency', 100);
             $table->integer('duration');
             $table->dateTime('prescribed_at')->nullable(); // Đặt nullable thay vì useCurrent()
-            $table->foreign('id_medical_record')->references('id_medical_record')->on('medical_records');
             $table->timestamps(); // Chỉ sử dụng timestamps() của Laravel
         });
     }

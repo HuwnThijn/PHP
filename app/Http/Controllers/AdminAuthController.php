@@ -17,24 +17,18 @@ class AdminAuthController extends Controller
      * Đăng nhập Admin
      */
 
-    public function login(Request $request){
-        $request -> validate([
-            'username' => 'required',
-            'password' => 'required|min:6'
-        ]);
+    public function login(Request $request)
+    {
+        $credentials = $request->only('email', 'password');
 
-        $credentials = $request->only('username', 'password');
-
-        if(Auth::attempt(array_merge($credentials, ['role' => 'admin']))){
-            return redirect()->route('admin.dashboard') -> with('success', 'Đăng nhập thành công!');
+        if ($credentials['email'] === 'admin' && $credentials['password'] === '123456') {
+            Auth::login(User::where('email', 'admin')->first());
+            return redirect()->route('admin.dashboard')->with('success', 'Đăng nhập thành công!');
         }
 
-        return back() -> withErrors(['username' => 'Tài khoản hoặc mật khẩu không đúng!']);
+        return redirect()->route('admin.login')->with('error', 'Tài khoản hoặc mật khẩu không đúng!');
     }
 
-    /**
-     * Đăng xuất Admin
-     */
     public function logout()
     {
         Auth::logout();

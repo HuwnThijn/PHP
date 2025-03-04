@@ -10,7 +10,7 @@ return new class extends Migration
     public function up()
     {
         Schema::create('transactions', function (Blueprint $table) {
-            $table->id('id_transaction');
+            $table->id('id_transaction')->unique();
             $table->unsignedBigInteger('id_user');
             $table->unsignedBigInteger('id_order');
             $table->decimal('amount', 10, 2);
@@ -19,8 +19,6 @@ return new class extends Migration
             $table->enum('payment_method', ['cash', 'credit_card', 'bank_transfer']);
             $table->dateTime('transaction_date')->nullable(); // Đặt nullable thay vì useCurrent()
             $table->decimal('final_amount', 10, 2);
-            $table->foreign('id_user')->references('id_user')->on('users');
-            $table->foreign('id_order')->references('id_order')->on('orders');
             $table->timestamps(); // Chỉ sử dụng timestamps() của Laravel
         });
     }

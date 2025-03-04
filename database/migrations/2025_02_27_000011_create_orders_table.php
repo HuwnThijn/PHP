@@ -10,12 +10,11 @@ return new class extends Migration
     public function up()
     {
         Schema::create('orders', function (Blueprint $table) {
-            $table->id('id_order');
+            $table->id('id_order')->unique();
             $table->unsignedBigInteger('id_user');
             $table->decimal('total_price', 10, 2);
             $table->enum('payment_method', ['cash', 'credit_card', 'bank_transfer']);
             $table->enum('status', ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'])->default('pending');
-            $table->foreign('id_user')->references('id_user')->on('users');
             $table->timestamps(); // Chỉ sử dụng timestamps() của Laravel
         });
     }

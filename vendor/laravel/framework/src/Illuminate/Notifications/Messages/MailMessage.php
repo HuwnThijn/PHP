@@ -8,7 +8,6 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Markdown;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Conditionable;
 
 class MailMessage extends SimpleMessage implements Renderable
@@ -128,21 +127,6 @@ class MailMessage extends SimpleMessage implements Renderable
         $this->markdown = null;
 
         return $this;
-    }
-
-    /**
-     * Set the plain text view for the mail message.
-     *
-     * @param  string  $textView
-     * @param  array  $data
-     * @return $this
-     */
-    public function text($textView, array $data = [])
-    {
-        return $this->view([
-            'html' => is_array($this->view) ? ($this->view['html'] ?? null) : $this->view,
-            'text' => $textView,
-        ], $data);
     }
 
     /**
@@ -279,25 +263,6 @@ class MailMessage extends SimpleMessage implements Renderable
     }
 
     /**
-     * Attach multiple files to the message.
-     *
-     * @param  array<string|\Illuminate\Contracts\Mail\Attachable|\Illuminate\Mail\Attachment|array>  $files
-     * @return $this
-     */
-    public function attachMany($files)
-    {
-        foreach ($files as $file => $options) {
-            if (is_int($file)) {
-                $this->attach($options);
-            } else {
-                $this->attach($file, $options);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
      * Attach in-memory data as an attachment.
      *
      * @param  string  $data
@@ -320,7 +285,7 @@ class MailMessage extends SimpleMessage implements Renderable
      */
     public function tag($value)
     {
-        $this->tags[] = $value;
+        array_push($this->tags, $value);
 
         return $this;
     }
@@ -372,7 +337,7 @@ class MailMessage extends SimpleMessage implements Renderable
      */
     protected function parseAddresses($value)
     {
-        return (new Collection($value))->map(function ($address, $name) {
+        return collect($value)->map(function ($address, $name) {
             return [$address, is_numeric($name) ? null : $name];
         })->values()->all();
     }
@@ -404,7 +369,7 @@ class MailMessage extends SimpleMessage implements Renderable
         $markdown = Container::getInstance()->make(Markdown::class);
 
         return $markdown->theme($this->theme ?: $markdown->getTheme())
-            ->render($this->markdown, $this->data());
+                ->render($this->markdown, $this->data());
     }
 
     /**

@@ -30,19 +30,25 @@ class ChainExtractor implements ExtractorInterface
     /**
      * Adds a loader to the translation extractor.
      */
-    public function addExtractor(string $format, ExtractorInterface $extractor): void
+    public function addExtractor(string $format, ExtractorInterface $extractor)
     {
         $this->extractors[$format] = $extractor;
     }
 
-    public function setPrefix(string $prefix): void
+    /**
+     * {@inheritdoc}
+     */
+    public function setPrefix(string $prefix)
     {
         foreach ($this->extractors as $extractor) {
             $extractor->setPrefix($prefix);
         }
     }
 
-    public function extract(string|iterable $directory, MessageCatalogue $catalogue): void
+    /**
+     * {@inheritdoc}
+     */
+    public function extract(string|iterable $directory, MessageCatalogue $catalogue)
     {
         foreach ($this->extractors as $extractor) {
             $extractor->extract($directory, $catalogue);

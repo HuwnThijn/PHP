@@ -3,7 +3,7 @@
 namespace Illuminate\Console\Concerns;
 
 use Illuminate\Console\Signals;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Arr;
 
 trait InteractsWithSignals
 {
@@ -17,9 +17,7 @@ trait InteractsWithSignals
     /**
      * Define a callback to be run when the given signal(s) occurs.
      *
-     * @template TSignals of iterable<array-key, int>|int
-     *
-     * @param  (\Closure():(TSignals))|TSignals  $signals
+     * @param  iterable<array-key, int>|int  $signals
      * @param  callable(int $signal): void  $callback
      * @return void
      */
@@ -30,7 +28,7 @@ trait InteractsWithSignals
                 $this->getApplication()->getSignalRegistry(),
             );
 
-            Collection::wrap(value($signals))
+            collect(Arr::wrap($signals))
                 ->each(fn ($signal) => $this->signals->register($signal, $callback));
         });
     }

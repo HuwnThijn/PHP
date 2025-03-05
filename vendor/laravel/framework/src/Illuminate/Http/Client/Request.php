@@ -4,7 +4,6 @@ namespace Illuminate\Http\Client;
 
 use ArrayAccess;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Traits\Macroable;
 use LogicException;
 
@@ -147,7 +146,7 @@ class Request implements ArrayAccess
             return false;
         }
 
-        return (new Collection($this->data))->reject(function ($file) use ($name, $value, $filename) {
+        return collect($this->data)->reject(function ($file) use ($name, $value, $filename) {
             return $file['name'] != $name ||
                 ($value && $file['contents'] != $value) ||
                 ($filename && $file['filename'] != $filename);
@@ -194,7 +193,7 @@ class Request implements ArrayAccess
     protected function json()
     {
         if (! $this->data) {
-            $this->data = json_decode($this->body(), true) ?? [];
+            $this->data = json_decode($this->body(), true);
         }
 
         return $this->data;

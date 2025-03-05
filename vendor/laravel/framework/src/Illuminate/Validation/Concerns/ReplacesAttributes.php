@@ -133,20 +133,6 @@ trait ReplacesAttributes
     }
 
     /**
-     * Replace all place-holders for the extensions rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replaceExtensions($message, $attribute, $rule, $parameters)
-    {
-        return str_replace(':values', implode(', ', $parameters), $message);
-    }
-
-    /**
      * Replace all place-holders for the min rule.
      *
      * @param  string  $message
@@ -231,10 +217,7 @@ trait ReplacesAttributes
      */
     protected function replaceMissingUnless($message, $attribute, $rule, $parameters)
     {
-        return str_replace([':other', ':value'], [
-            $this->getDisplayableAttribute($parameters[0]),
-            $this->getDisplayableValue($parameters[0], $parameters[1]),
-        ], $message);
+        return $this->replaceMissingIf($message, $attribute, $rule, $parameters);
     }
 
     /**
@@ -369,68 +352,6 @@ trait ReplacesAttributes
     protected function replaceMimes($message, $attribute, $rule, $parameters)
     {
         return str_replace(':values', implode(', ', $parameters), $message);
-    }
-
-    /**
-     * Replace all place-holders for the present_if rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replacePresentIf($message, $attribute, $rule, $parameters)
-    {
-        $parameters[1] = $this->getDisplayableValue($parameters[0], Arr::get($this->data, $parameters[0]));
-        $parameters[0] = $this->getDisplayableAttribute($parameters[0]);
-
-        return str_replace([':other', ':value'], $parameters, $message);
-    }
-
-    /**
-     * Replace all place-holders for the present_unless rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replacePresentUnless($message, $attribute, $rule, $parameters)
-    {
-        return str_replace([':other', ':value'], [
-            $this->getDisplayableAttribute($parameters[0]),
-            $this->getDisplayableValue($parameters[0], $parameters[1]),
-        ], $message);
-    }
-
-    /**
-     * Replace all place-holders for the present_with rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replacePresentWith($message, $attribute, $rule, $parameters)
-    {
-        return str_replace(':values', implode(' / ', $this->getAttributeList($parameters)), $message);
-    }
-
-    /**
-     * Replace all place-holders for the present_with_all rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replacePresentWithAll($message, $attribute, $rule, $parameters)
-    {
-        return $this->replacePresentWith($message, $attribute, $rule, $parameters);
     }
 
     /**
@@ -610,22 +531,6 @@ trait ReplacesAttributes
     }
 
     /**
-     * Replace all place-holders for the required_if_declined rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    public function replaceRequiredIfDeclined($message, $attribute, $rule, $parameters)
-    {
-        $parameters[0] = $this->getDisplayableAttribute($parameters[0]);
-
-        return str_replace([':other'], $parameters, $message);
-    }
-
-    /**
      * Replace all place-holders for the required_unless rule.
      *
      * @param  string  $message
@@ -663,38 +568,6 @@ trait ReplacesAttributes
         $parameters[0] = $this->getDisplayableAttribute($parameters[0]);
 
         return str_replace([':other', ':value'], $parameters, $message);
-    }
-
-    /**
-     * Replace all place-holders for the prohibited_if_accepted rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    protected function replaceProhibitedIfAccepted($message, $attribute, $rule, $parameters)
-    {
-        $parameters[0] = $this->getDisplayableAttribute($parameters[0]);
-
-        return str_replace([':other'], $parameters, $message);
-    }
-
-    /**
-     * Replace all place-holders for the prohibited_if_declined rule.
-     *
-     * @param  string  $message
-     * @param  string  $attribute
-     * @param  string  $rule
-     * @param  array<int,string>  $parameters
-     * @return string
-     */
-    public function replaceProhibitedIfDeclined($message, $attribute, $rule, $parameters)
-    {
-        $parameters[0] = $this->getDisplayableAttribute($parameters[0]);
-
-        return str_replace([':other'], $parameters, $message);
     }
 
     /**

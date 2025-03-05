@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Support\Collection;
 use ReflectionFunction;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -19,6 +18,17 @@ class EventListCommand extends Command
      * @var string
      */
     protected $signature = 'event:list {--event= : Filter the events by name}';
+
+    /**
+     * The name of the console command.
+     *
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     *
+     * @deprecated
+     */
+    protected static $defaultName = 'event:list';
 
     /**
      * The console command description.
@@ -66,7 +76,7 @@ class EventListCommand extends Command
      */
     protected function getEvents()
     {
-        $events = new Collection($this->getListenersOnDispatcher());
+        $events = collect($this->getListenersOnDispatcher());
 
         if ($this->filteringByEvent()) {
             $events = $this->filterEvents($events);
@@ -200,7 +210,7 @@ class EventListCommand extends Command
     /**
      * Get the event dispatcher.
      *
-     * @return \Illuminate\Events\Dispatcher
+     * @return Illuminate\Events\Dispatcher
      */
     public function getEventsDispatcher()
     {

@@ -121,10 +121,10 @@ class CompiledRouteCollection extends AbstractRouteCollection
             if ($result = $matcher->matchRequest($trimmedRequest)) {
                 $route = $this->getByName($result['_route']);
             }
-        } catch (ResourceNotFoundException|MethodNotAllowedException) {
+        } catch (ResourceNotFoundException|MethodNotAllowedException $e) {
             try {
                 return $this->routes->match($request);
-            } catch (NotFoundHttpException) {
+            } catch (NotFoundHttpException $e) {
                 //
             }
         }
@@ -136,7 +136,7 @@ class CompiledRouteCollection extends AbstractRouteCollection
                 if (! $dynamicRoute->isFallback) {
                     $route = $dynamicRoute;
                 }
-            } catch (NotFoundHttpException|MethodNotAllowedHttpException) {
+            } catch (NotFoundHttpException|MethodNotAllowedHttpException $e) {
                 //
             }
         }
@@ -208,7 +208,7 @@ class CompiledRouteCollection extends AbstractRouteCollection
      */
     public function getByAction($action)
     {
-        $attributes = (new Collection($this->attributes))->first(function (array $attributes) use ($action) {
+        $attributes = collect($this->attributes)->first(function (array $attributes) use ($action) {
             if (isset($attributes['action']['controller'])) {
                 return trim($attributes['action']['controller'], '\\') === $action;
             }
@@ -230,7 +230,7 @@ class CompiledRouteCollection extends AbstractRouteCollection
      */
     public function getRoutes()
     {
-        return (new Collection($this->attributes))
+        return collect($this->attributes)
             ->map(function (array $attributes) {
                 return $this->newRoute($attributes);
             })
@@ -246,7 +246,7 @@ class CompiledRouteCollection extends AbstractRouteCollection
      */
     public function getRoutesByMethod()
     {
-        return (new Collection($this->getRoutes()))
+        return collect($this->getRoutes())
             ->groupBy(function (Route $route) {
                 return $route->methods();
             })
@@ -265,7 +265,7 @@ class CompiledRouteCollection extends AbstractRouteCollection
      */
     public function getRoutesByName()
     {
-        return (new Collection($this->getRoutes()))
+        return collect($this->getRoutes())
             ->keyBy(function (Route $route) {
                 return $route->getName();
             })

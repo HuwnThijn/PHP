@@ -17,7 +17,7 @@ use Symfony\Component\VarDumper\Dumper\ContextProvider\SourceContextProvider;
 /**
  * @author Nicolas Grekas <p@tchwork.com>
  */
-class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
+class Data implements \ArrayAccess, \Countable, \IteratorAggregate
 {
     private array $data;
     private int $position = 0;
@@ -115,13 +115,13 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
     public function getIterator(): \Traversable
     {
         if (!\is_array($value = $this->getValue())) {
-            throw new \LogicException(\sprintf('"%s" object holds non-iterable type "%s".', self::class, get_debug_type($value)));
+            throw new \LogicException(sprintf('"%s" object holds non-iterable type "%s".', self::class, get_debug_type($value)));
         }
 
         yield from $value;
     }
 
-    public function __get(string $key): mixed
+    public function __get(string $key)
     {
         if (null !== $data = $this->seek($key)) {
             $item = $this->getStub($data->data[$data->position][$data->key]);
@@ -165,7 +165,7 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
             return (string) $value;
         }
 
-        return \sprintf('%s (count=%d)', $this->getType(), \count($value));
+        return sprintf('%s (count=%d)', $this->getType(), \count($value));
     }
 
     /**
@@ -209,11 +209,6 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
         $data->context = $context;
 
         return $data;
-    }
-
-    public function getContext(): array
-    {
-        return $this->context;
     }
 
     /**
@@ -263,18 +258,20 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
     /**
      * Dumps data with a DumperInterface dumper.
      */
-    public function dump(DumperInterface $dumper): void
+    public function dump(DumperInterface $dumper)
     {
         $refs = [0];
         $cursor = new Cursor();
-        $cursor->hashType = -1;
-        $cursor->attr = $this->context[SourceContextProvider::class] ?? [];
-        $label = $this->context['label'] ?? '';
 
-        if ($cursor->attr || '' !== $label) {
-            $dumper->dumpScalar($cursor, 'label', $label);
+        if ($cursor->attr = $this->context[SourceContextProvider::class] ?? []) {
+            $cursor->attr['if_links'] = true;
+            $cursor->hashType = -1;
+            $dumper->dumpScalar($cursor, 'default', '^');
+            $cursor->attr = ['if_links' => true];
+            $dumper->dumpScalar($cursor, 'default', ' ');
+            $cursor->hashType = 0;
         }
-        $cursor->hashType = 0;
+
         $this->dumpItem($dumper, $cursor, $refs, $this->data[$this->position][$this->key]);
     }
 
@@ -283,7 +280,7 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
      *
      * @param mixed $item A Stub object or the original value being dumped
      */
-    private function dumpItem(DumperInterface $dumper, Cursor $cursor, array &$refs, mixed $item): void
+    private function dumpItem(DumperInterface $dumper, Cursor $cursor, array &$refs, mixed $item)
     {
         $cursor->refIndex = 0;
         $cursor->softRefTo = $cursor->softRefHandle = $cursor->softRefCount = 0;
@@ -365,12 +362,8 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
                     $dumper->leaveHash($cursor, $item->type, $item->class, $withChildren, $cut);
                     break;
 
-                case Stub::TYPE_SCALAR:
-                    $dumper->dumpScalar($cursor, 'default', $item->attr['value']);
-                    break;
-
                 default:
-                    throw new \RuntimeException(\sprintf('Unexpected Stub type: "%s".', $item->type));
+                    throw new \RuntimeException(sprintf('Unexpected Stub type: "%s".', $item->type));
             }
         } elseif ('array' === $type) {
             $dumper->enterHash($cursor, Cursor::HASH_INDEXED, 0, false);
@@ -409,7 +402,7 @@ class Data implements \ArrayAccess, \Countable, \IteratorAggregate, \Stringable
         return $hashCut;
     }
 
-    private function getStub(mixed $item): mixed
+    private function getStub(mixed $item)
     {
         if (!$item || !\is_array($item)) {
             return $item;

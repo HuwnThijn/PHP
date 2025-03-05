@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\Auth\Factory as Auth;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
-use Illuminate\Http\Request;
 
 class Authenticate implements AuthenticatesRequests
 {
@@ -16,13 +15,6 @@ class Authenticate implements AuthenticatesRequests
      * @var \Illuminate\Contracts\Auth\Factory
      */
     protected $auth;
-
-    /**
-     * The callback that should be used to generate the authentication redirect path.
-     *
-     * @var callable
-     */
-    protected static $redirectToCallback;
 
     /**
      * Create a new middleware instance.
@@ -36,23 +28,11 @@ class Authenticate implements AuthenticatesRequests
     }
 
     /**
-     * Specify the guards for the middleware.
-     *
-     * @param  string  $guard
-     * @param  string  $others
-     * @return string
-     */
-    public static function using($guard, ...$others)
-    {
-        return static::class.':'.implode(',', [$guard, ...$others]);
-    }
-
-    /**
      * Handle an incoming request.
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  ...$guards
+     * @param  string[]  ...$guards
      * @return mixed
      *
      * @throws \Illuminate\Auth\AuthenticationException
@@ -93,16 +73,14 @@ class Authenticate implements AuthenticatesRequests
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  array  $guards
-     * @return never
+     * @return void
      *
      * @throws \Illuminate\Auth\AuthenticationException
      */
     protected function unauthenticated($request, array $guards)
     {
         throw new AuthenticationException(
-            'Unauthenticated.',
-            $guards,
-            $request->expectsJson() ? null : $this->redirectTo($request),
+            'Unauthenticated.', $guards, $this->redirectTo($request)
         );
     }
 
@@ -112,21 +90,8 @@ class Authenticate implements AuthenticatesRequests
      * @param  \Illuminate\Http\Request  $request
      * @return string|null
      */
-    protected function redirectTo(Request $request)
+    protected function redirectTo($request)
     {
-        if (static::$redirectToCallback) {
-            return call_user_func(static::$redirectToCallback, $request);
-        }
-    }
-
-    /**
-     * Specify the callback that should be used to generate the redirect path.
-     *
-     * @param  callable  $redirectToCallback
-     * @return void
-     */
-    public static function redirectUsing(callable $redirectToCallback)
-    {
-        static::$redirectToCallback = $redirectToCallback;
+        //
     }
 }

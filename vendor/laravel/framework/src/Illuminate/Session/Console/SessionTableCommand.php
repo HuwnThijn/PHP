@@ -2,27 +2,31 @@
 
 namespace Illuminate\Session\Console;
 
-use Illuminate\Console\MigrationGeneratorCommand;
+use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Composer;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-use function Illuminate\Filesystem\join_paths;
-
-#[AsCommand(name: 'make:session-table', aliases: ['session:table'])]
-class SessionTableCommand extends MigrationGeneratorCommand
+#[AsCommand(name: 'session:table')]
+class SessionTableCommand extends Command
 {
     /**
      * The console command name.
      *
      * @var string
      */
-    protected $name = 'make:session-table';
+    protected $name = 'session:table';
 
     /**
-     * The console command name aliases.
+     * The name of the console command.
      *
-     * @var array
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     *
+     * @deprecated
      */
-    protected $aliases = ['session:table'];
+    protected static $defaultName = 'session:table';
 
     /**
      * The console command description.
@@ -32,42 +36,59 @@ class SessionTableCommand extends MigrationGeneratorCommand
     protected $description = 'Create a migration for the session database table';
 
     /**
-     * Get the migration table name.
+     * The filesystem instance.
      *
-     * @return string
+     * @var \Illuminate\Filesystem\Filesystem
      */
-    protected function migrationTableName()
+    protected $files;
+
+    /**
+     * @var \Illuminate\Support\Composer
+     */
+    protected $composer;
+
+    /**
+     * Create a new session table command instance.
+     *
+     * @param  \Illuminate\Filesystem\Filesystem  $files
+     * @param  \Illuminate\Support\Composer  $composer
+     * @return void
+     */
+    public function __construct(Filesystem $files, Composer $composer)
     {
-        return 'sessions';
+        parent::__construct();
+
+        $this->files = $files;
+        $this->composer = $composer;
     }
 
     /**
-     * Get the path to the migration stub file.
+     * Execute the console command.
      *
-     * @return string
+     * @return void
      */
-    protected function migrationStubFile()
+    public function handle()
     {
-        return __DIR__.'/stubs/database.stub';
+        $fullPath = $this->createBaseMigration();
+
+        $this->files->put($fullPath, $this->files->get(__DIR__.'/stubs/database.stub'));
+
+        $this->components->info('Migration created successfully.');
+
+        $this->composer->dumpAutoloads();
     }
 
     /**
-     * Determine whether a migration for the table already exists.
+     * Create a base migration file for the session.
      *
-     * @param  string  $table
-     * @return bool
+     * @return string
      */
-    protected function migrationExists($table)
+    protected function createBaseMigration()
     {
-        foreach ([
-            join_paths($this->laravel->databasePath('migrations'), '*_*_*_*_create_'.$table.'_table.php'),
-            join_paths($this->laravel->databasePath('migrations'), '0001_01_01_000000_create_users_table.php'),
-        ] as $path) {
-            if (count($this->files->glob($path)) !== 0) {
-                return true;
-            }
-        }
+        $name = 'create_sessions_table';
 
-        return false;
+        $path = $this->laravel->databasePath().'/migrations';
+
+        return $this->laravel['migration.creator']->create($name, $path);
     }
 }

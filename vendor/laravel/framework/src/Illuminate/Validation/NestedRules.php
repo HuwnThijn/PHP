@@ -30,29 +30,26 @@ class NestedRules
      * @param  string  $attribute
      * @param  mixed  $value
      * @param  mixed  $data
-     * @param  mixed  $context
      * @return \stdClass
      */
-    public function compile($attribute, $value, $data = null, $context = null)
+    public function compile($attribute, $value, $data = null)
     {
-        $rules = call_user_func($this->callback, $value, $attribute, $data, $context);
+        $rules = call_user_func($this->callback, $value, $attribute, $data);
 
         $parser = new ValidationRuleParser(
             Arr::undot(Arr::wrap($data))
         );
 
-        if (is_array($rules) && ! array_is_list($rules)) {
+        if (is_array($rules) && Arr::isAssoc($rules)) {
             $nested = [];
 
             foreach ($rules as $key => $rule) {
                 $nested[$attribute.'.'.$key] = $rule;
             }
 
-            $rules = $nested;
-        } else {
-            $rules = [$attribute => $rules];
+            return $parser->explode($nested);
         }
 
-        return $parser->explode(ValidationRuleParser::filterConditionalRules($rules, $data));
+        return $parser->explode([$attribute => $rules]);
     }
 }

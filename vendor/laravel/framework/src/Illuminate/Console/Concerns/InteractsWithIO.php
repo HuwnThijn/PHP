@@ -95,7 +95,7 @@ trait InteractsWithIO
     }
 
     /**
-     * Determine whether the option is defined in the command signature.
+     * Determine if the given option is present.
      *
      * @param  string  $name
      * @return bool
@@ -263,8 +263,8 @@ trait InteractsWithIO
         $bar->start();
 
         if (is_iterable($totalSteps)) {
-            foreach ($totalSteps as $key => $value) {
-                $callback($value, $bar, $key);
+            foreach ($totalSteps as $value) {
+                $callback($value, $bar);
 
                 $bar->advance();
             }
@@ -449,15 +449,5 @@ trait InteractsWithIO
     public function getOutput()
     {
         return $this->output;
-    }
-
-    /**
-     * Get the output component factory implementation.
-     *
-     * @return \Illuminate\Console\View\Components\Factory
-     */
-    public function outputComponents()
-    {
-        return $this->components;
     }
 }

@@ -20,11 +20,16 @@ use Symfony\Component\Routing\RouteCollection;
  */
 abstract class GeneratorDumper implements GeneratorDumperInterface
 {
-    public function __construct(
-        private RouteCollection $routes,
-    ) {
+    private $routes;
+
+    public function __construct(RouteCollection $routes)
+    {
+        $this->routes = $routes;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRoutes(): RouteCollection
     {
         return $this->routes;

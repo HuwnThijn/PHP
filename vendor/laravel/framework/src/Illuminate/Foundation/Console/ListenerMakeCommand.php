@@ -10,8 +10,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-use function Laravel\Prompts\suggest;
-
 #[AsCommand(name: 'make:listener')]
 class ListenerMakeCommand extends GeneratorCommand
 {
@@ -23,6 +21,17 @@ class ListenerMakeCommand extends GeneratorCommand
      * @var string
      */
     protected $name = 'make:listener';
+
+    /**
+     * The name of the console command.
+     *
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     *
+     * @deprecated
+     */
+    protected static $defaultName = 'make:listener';
 
     /**
      * The console command description.
@@ -46,7 +55,7 @@ class ListenerMakeCommand extends GeneratorCommand
      */
     protected function buildClass($name)
     {
-        $event = $this->option('event') ?? '';
+        $event = $this->option('event');
 
         if (! Str::startsWith($event, [
             $this->laravel->getNamespace(),
@@ -66,19 +75,6 @@ class ListenerMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Resolve the fully-qualified path to the stub.
-     *
-     * @param  string  $stub
-     * @return string
-     */
-    protected function resolveStubPath($stub)
-    {
-        return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
-                        ? $customPath
-                        : __DIR__.$stub;
-    }
-
-    /**
      * Get the stub file for the generator.
      *
      * @return string
@@ -87,13 +83,13 @@ class ListenerMakeCommand extends GeneratorCommand
     {
         if ($this->option('queued')) {
             return $this->option('event')
-                        ? $this->resolveStubPath('/stubs/listener.typed.queued.stub')
-                        : $this->resolveStubPath('/stubs/listener.queued.stub');
+                        ? __DIR__.'/stubs/listener-queued.stub'
+                        : __DIR__.'/stubs/listener-queued-duck.stub';
         }
 
         return $this->option('event')
-                    ? $this->resolveStubPath('/stubs/listener.typed.stub')
-                    : $this->resolveStubPath('/stubs/listener.stub');
+                    ? __DIR__.'/stubs/listener.stub'
+                    : __DIR__.'/stubs/listener-duck.stub';
     }
 
     /**
@@ -104,7 +100,7 @@ class ListenerMakeCommand extends GeneratorCommand
      */
     protected function alreadyExists($rawName)
     {
-        return class_exists($this->qualifyClass($rawName));
+        return class_exists($rawName);
     }
 
     /**
@@ -145,12 +141,13 @@ class ListenerMakeCommand extends GeneratorCommand
             return;
         }
 
-        $event = suggest(
-            'What event should be listened for? (Optional)',
+        $event = $this->components->askWithCompletion(
+            'What event should be listened for?',
             $this->possibleEvents(),
+            'none'
         );
 
-        if ($event) {
+        if ($event && $event !== 'none') {
             $input->setOption('event', $event);
         }
     }

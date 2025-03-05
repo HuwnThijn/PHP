@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Testing\Fakes\EventFake;
 
 /**
- * @method static void listen(\Illuminate\Events\QueuedClosure|callable|array|string $events, \Illuminate\Events\QueuedClosure|callable|array|string|null $listener = null)
+ * @method static void listen(\Closure|string|array $events, \Closure|string|array|null $listener = null)
  * @method static bool hasListeners(string $eventName)
  * @method static bool hasWildcardListeners(string $eventName)
  * @method static void push(string $event, object|array $payload = [])
  * @method static void flush(string $event)
  * @method static void subscribe(object|string $subscriber)
- * @method static mixed until(string|object $event, mixed $payload = [])
+ * @method static array|null until(string|object $event, mixed $payload = [])
  * @method static array|null dispatch(string|object $event, mixed $payload = [], bool $halt = false)
  * @method static array getListeners(string $eventName)
  * @method static \Closure makeListener(\Closure|string|array $listener, bool $wildcard = false)
@@ -20,7 +20,6 @@ use Illuminate\Support\Testing\Fakes\EventFake;
  * @method static void forget(string $event)
  * @method static void forgetPushed()
  * @method static \Illuminate\Events\Dispatcher setQueueResolver(callable $resolver)
- * @method static \Illuminate\Events\Dispatcher setTransactionManagerResolver(callable $resolver)
  * @method static array getRawListeners()
  * @method static void macro(string $name, object|callable $macro)
  * @method static void mixin(object $mixin, bool $replace = true)
@@ -34,7 +33,6 @@ use Illuminate\Support\Testing\Fakes\EventFake;
  * @method static void assertNothingDispatched()
  * @method static \Illuminate\Support\Collection dispatched(string $event, callable|null $callback = null)
  * @method static bool hasDispatched(string $event)
- * @method static array dispatchedEvents()
  *
  * @see \Illuminate\Events\Dispatcher
  * @see \Illuminate\Support\Testing\Fakes\EventFake
@@ -49,16 +47,12 @@ class Event extends Facade
      */
     public static function fake($eventsToFake = [])
     {
-        $actualDispatcher = static::isFake()
-                ? static::getFacadeRoot()->dispatcher
-                : static::getFacadeRoot();
+        static::swap($fake = new EventFake(static::getFacadeRoot(), $eventsToFake));
 
-        return tap(new EventFake($actualDispatcher, $eventsToFake), function ($fake) {
-            static::swap($fake);
+        Model::setEventDispatcher($fake);
+        Cache::refreshEventDispatcher();
 
-            Model::setEventDispatcher($fake);
-            Cache::refreshEventDispatcher();
-        });
+        return $fake;
     }
 
     /**

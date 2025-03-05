@@ -14,7 +14,6 @@ use Illuminate\Queue\Connectors\SyncConnector;
 use Illuminate\Queue\Failed\DatabaseFailedJobProvider;
 use Illuminate\Queue\Failed\DatabaseUuidFailedJobProvider;
 use Illuminate\Queue\Failed\DynamoDbFailedJobProvider;
-use Illuminate\Queue\Failed\FileFailedJobProvider;
 use Illuminate\Queue\Failed\NullFailedJobProvider;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Facade;
@@ -198,11 +197,7 @@ class QueueServiceProvider extends ServiceProvider implements DeferrableProvider
             };
 
             $resetScope = function () use ($app) {
-                if (method_exists($app['log'], 'flushSharedContext')) {
-                    $app['log']->flushSharedContext();
-                }
-
-                if (method_exists($app['log'], 'withoutContext')) {
+                if (method_exists($app['log']->driver(), 'withoutContext')) {
                     $app['log']->withoutContext();
                 }
 
@@ -215,7 +210,7 @@ class QueueServiceProvider extends ServiceProvider implements DeferrableProvider
 
                 $app->forgetScopedInstances();
 
-                Facade::clearResolvedInstances();
+                return Facade::clearResolvedInstances();
             };
 
             return new Worker(
@@ -255,13 +250,7 @@ class QueueServiceProvider extends ServiceProvider implements DeferrableProvider
                 return new NullFailedJobProvider;
             }
 
-            if (isset($config['driver']) && $config['driver'] === 'file') {
-                return new FileFailedJobProvider(
-                    $config['path'] ?? $this->app->storagePath('framework/cache/failed-jobs.json'),
-                    $config['limit'] ?? 100,
-                    fn () => $app['cache']->store('file'),
-                );
-            } elseif (isset($config['driver']) && $config['driver'] === 'dynamodb') {
+            if (isset($config['driver']) && $config['driver'] === 'dynamodb') {
                 return $this->dynamoFailedJobProvider($config);
             } elseif (isset($config['driver']) && $config['driver'] === 'database-uuids') {
                 return $this->databaseUuidFailedJobProvider($config);
@@ -314,11 +303,9 @@ class QueueServiceProvider extends ServiceProvider implements DeferrableProvider
         ];
 
         if (! empty($config['key']) && ! empty($config['secret'])) {
-            $dynamoConfig['credentials'] = Arr::only($config, ['key', 'secret']);
-
-            if (! empty($config['token'])) {
-                $dynamoConfig['credentials']['token'] = $config['token'];
-            }
+            $dynamoConfig['credentials'] = Arr::only(
+                $config, ['key', 'secret', 'token']
+            );
         }
 
         return new DynamoDbFailedJobProvider(

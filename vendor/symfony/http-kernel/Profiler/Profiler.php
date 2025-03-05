@@ -26,25 +26,28 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 class Profiler implements ResetInterface
 {
+    private $storage;
+
     /**
      * @var DataCollectorInterface[]
      */
     private array $collectors = [];
 
+    private $logger;
     private bool $initiallyEnabled = true;
+    private bool $enabled = true;
 
-    public function __construct(
-        private ProfilerStorageInterface $storage,
-        private ?LoggerInterface $logger = null,
-        private bool $enabled = true,
-    ) {
-        $this->initiallyEnabled = $enabled;
+    public function __construct(ProfilerStorageInterface $storage, LoggerInterface $logger = null, bool $enable = true)
+    {
+        $this->storage = $storage;
+        $this->logger = $logger;
+        $this->initiallyEnabled = $this->enabled = $enable;
     }
 
     /**
      * Disables the profiler.
      */
-    public function disable(): void
+    public function disable()
     {
         $this->enabled = false;
     }
@@ -52,14 +55,9 @@ class Profiler implements ResetInterface
     /**
      * Enables the profiler.
      */
-    public function enable(): void
+    public function enable()
     {
         $this->enabled = true;
-    }
-
-    public function isEnabled(): bool
-    {
-        return $this->enabled;
     }
 
     /**
@@ -95,7 +93,7 @@ class Profiler implements ResetInterface
         }
 
         if (!($ret = $this->storage->write($profile)) && null !== $this->logger) {
-            $this->logger->warning('Unable to store the profiler information.', ['configured_storage' => $this->storage::class]);
+            $this->logger->warning('Unable to store the profiler information.', ['configured_storage' => \get_class($this->storage)]);
         }
 
         return $ret;
@@ -104,7 +102,7 @@ class Profiler implements ResetInterface
     /**
      * Purges all data from the storage.
      */
-    public function purge(): void
+    public function purge()
     {
         $this->storage->purge();
     }
@@ -112,40 +110,35 @@ class Profiler implements ResetInterface
     /**
      * Finds profiler tokens for the given criteria.
      *
-     * @param int|null      $limit  The maximum number of tokens to return
-     * @param string|null   $start  The start date to search from
-     * @param string|null   $end    The end date to search to
-     * @param \Closure|null $filter A filter to apply on the list of tokens
+     * @param string|null $limit The maximum number of tokens to return
+     * @param string|null $start The start date to search from
+     * @param string|null $end   The end date to search to
      *
      * @see https://php.net/datetime.formats for the supported date/time formats
      */
-    public function find(?string $ip, ?string $url, ?int $limit, ?string $method, ?string $start, ?string $end, ?string $statusCode = null, ?\Closure $filter = null): array
+    public function find(?string $ip, ?string $url, ?string $limit, ?string $method, ?string $start, ?string $end, string $statusCode = null): array
     {
-        return $this->storage->find($ip, $url, $limit, $method, $this->getTimestamp($start), $this->getTimestamp($end), $statusCode, $filter);
+        return $this->storage->find($ip, $url, $limit, $method, $this->getTimestamp($start), $this->getTimestamp($end), $statusCode);
     }
 
     /**
      * Collects data for the given Response.
      */
-    public function collect(Request $request, Response $response, ?\Throwable $exception = null): ?Profile
+    public function collect(Request $request, Response $response, \Throwable $exception = null): ?Profile
     {
         if (false === $this->enabled) {
             return null;
         }
 
-        $profile = new Profile(bin2hex(random_bytes(3)));
+        $profile = new Profile(substr(hash('sha256', uniqid(mt_rand(), true)), 0, 6));
         $profile->setTime(time());
         $profile->setUrl($request->getUri());
         $profile->setMethod($request->getMethod());
         $profile->setStatusCode($response->getStatusCode());
         try {
             $profile->setIp($request->getClientIp());
-        } catch (ConflictingHeadersException) {
+        } catch (ConflictingHeadersException $e) {
             $profile->setIp('Unknown');
-        }
-
-        if ($request->attributes->has('_virtual_type')) {
-            $profile->setVirtualType($request->attributes->get('_virtual_type'));
         }
 
         if ($prevToken = $response->headers->get('X-Debug-Token')) {
@@ -164,7 +157,7 @@ class Profiler implements ResetInterface
         return $profile;
     }
 
-    public function reset(): void
+    public function reset()
     {
         foreach ($this->collectors as $collector) {
             $collector->reset();
@@ -185,7 +178,7 @@ class Profiler implements ResetInterface
      *
      * @param DataCollectorInterface[] $collectors An array of collectors
      */
-    public function set(array $collectors = []): void
+    public function set(array $collectors = [])
     {
         $this->collectors = [];
         foreach ($collectors as $collector) {
@@ -196,7 +189,7 @@ class Profiler implements ResetInterface
     /**
      * Adds a Collector.
      */
-    public function add(DataCollectorInterface $collector): void
+    public function add(DataCollectorInterface $collector)
     {
         $this->collectors[$collector->getName()] = $collector;
     }
@@ -221,7 +214,7 @@ class Profiler implements ResetInterface
     public function get(string $name): DataCollectorInterface
     {
         if (!isset($this->collectors[$name])) {
-            throw new \InvalidArgumentException(\sprintf('Collector "%s" does not exist.', $name));
+            throw new \InvalidArgumentException(sprintf('Collector "%s" does not exist.', $name));
         }
 
         return $this->collectors[$name];
@@ -234,8 +227,8 @@ class Profiler implements ResetInterface
         }
 
         try {
-            $value = new \DateTimeImmutable(is_numeric($value) ? '@'.$value : $value);
-        } catch (\Exception) {
+            $value = new \DateTime(is_numeric($value) ? '@'.$value : $value);
+        } catch (\Exception $e) {
             return null;
         }
 

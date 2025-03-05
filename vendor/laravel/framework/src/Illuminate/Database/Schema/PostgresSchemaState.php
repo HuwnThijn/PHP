@@ -3,7 +3,6 @@
 namespace Illuminate\Database\Schema;
 
 use Illuminate\Database\Connection;
-use Illuminate\Support\Collection;
 
 class PostgresSchemaState extends SchemaState
 {
@@ -16,13 +15,10 @@ class PostgresSchemaState extends SchemaState
      */
     public function dump(Connection $connection, $path)
     {
-        $commands = new Collection([
+        $commands = collect([
             $this->baseDumpCommand().' --schema-only > '.$path,
+            $this->baseDumpCommand().' -t '.$this->migrationTable.' --data-only >> '.$path,
         ]);
-
-        if ($this->hasMigrationTable()) {
-            $commands->push($this->baseDumpCommand().' -t '.$this->getMigrationTable().' --data-only >> '.$path);
-        }
 
         $commands->map(function ($command, $path) {
             $this->makeProcess($command)->mustRun($this->output, array_merge($this->baseVariables($this->connection->getConfig()), [
@@ -53,18 +49,6 @@ class PostgresSchemaState extends SchemaState
     }
 
     /**
-     * Get the name of the application's migration table.
-     *
-     * @return string
-     */
-    protected function getMigrationTable(): string
-    {
-        [$schema, $table] = $this->connection->getSchemaBuilder()->parseSchemaAndTable($this->migrationTable);
-
-        return $schema.'.'.$this->connection->getTablePrefix().$table;
-    }
-
-    /**
      * Get the base dump command arguments for PostgreSQL as a string.
      *
      * @return string
@@ -86,7 +70,7 @@ class PostgresSchemaState extends SchemaState
 
         return [
             'LARAVEL_LOAD_HOST' => is_array($config['host']) ? $config['host'][0] : $config['host'],
-            'LARAVEL_LOAD_PORT' => $config['port'] ?? '',
+            'LARAVEL_LOAD_PORT' => $config['port'],
             'LARAVEL_LOAD_USER' => $config['username'],
             'PGPASSWORD' => $config['password'],
             'LARAVEL_LOAD_DATABASE' => $config['database'],

@@ -2,27 +2,31 @@
 
 namespace Illuminate\Queue\Console;
 
-use Illuminate\Console\MigrationGeneratorCommand;
+use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Composer;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-use function Illuminate\Filesystem\join_paths;
-
-#[AsCommand(name: 'make:queue-failed-table', aliases: ['queue:failed-table'])]
-class FailedTableCommand extends MigrationGeneratorCommand
+#[AsCommand(name: 'queue:failed-table')]
+class FailedTableCommand extends Command
 {
     /**
      * The console command name.
      *
      * @var string
      */
-    protected $name = 'make:queue-failed-table';
+    protected $name = 'queue:failed-table';
 
     /**
-     * The console command name aliases.
+     * The name of the console command.
      *
-     * @var array
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     *
+     * @deprecated
      */
-    protected $aliases = ['queue:failed-table'];
+    protected static $defaultName = 'queue:failed-table';
 
     /**
      * The console command description.
@@ -32,46 +36,76 @@ class FailedTableCommand extends MigrationGeneratorCommand
     protected $description = 'Create a migration for the failed queue jobs database table';
 
     /**
-     * Get the migration table name.
+     * The filesystem instance.
      *
-     * @return string
+     * @var \Illuminate\Filesystem\Filesystem
      */
-    protected function migrationTableName()
+    protected $files;
+
+    /**
+     * @var \Illuminate\Support\Composer
+     */
+    protected $composer;
+
+    /**
+     * Create a new failed queue jobs table command instance.
+     *
+     * @param  \Illuminate\Filesystem\Filesystem  $files
+     * @param  \Illuminate\Support\Composer  $composer
+     * @return void
+     */
+    public function __construct(Filesystem $files, Composer $composer)
     {
-        return $this->laravel['config']['queue.failed.table'];
+        parent::__construct();
+
+        $this->files = $files;
+        $this->composer = $composer;
     }
 
     /**
-     * Get the path to the migration stub file.
+     * Execute the console command.
      *
-     * @return string
+     * @return void
      */
-    protected function migrationStubFile()
+    public function handle()
     {
-        return __DIR__.'/stubs/failed_jobs.stub';
+        $table = $this->laravel['config']['queue.failed.table'];
+
+        $this->replaceMigration(
+            $this->createBaseMigration($table), $table
+        );
+
+        $this->components->info('Migration created successfully.');
+
+        $this->composer->dumpAutoloads();
     }
 
     /**
-     * Determine whether a migration for the table already exists.
+     * Create a base migration file for the table.
      *
      * @param  string  $table
-     * @return bool
+     * @return string
      */
-    protected function migrationExists($table)
+    protected function createBaseMigration($table = 'failed_jobs')
     {
-        if ($table !== 'failed_jobs') {
-            return parent::migrationExists($table);
-        }
+        return $this->laravel['migration.creator']->create(
+            'create_'.$table.'_table', $this->laravel->databasePath().'/migrations'
+        );
+    }
 
-        foreach ([
-            join_paths($this->laravel->databasePath('migrations'), '*_*_*_*_create_'.$table.'_table.php'),
-            join_paths($this->laravel->databasePath('migrations'), '0001_01_01_000002_create_jobs_table.php'),
-        ] as $path) {
-            if (count($this->files->glob($path)) !== 0) {
-                return true;
-            }
-        }
+    /**
+     * Replace the generated migration with the failed job table stub.
+     *
+     * @param  string  $path
+     * @param  string  $table
+     * @return void
+     */
+    protected function replaceMigration($path, $table)
+    {
+        $stub = str_replace(
+            '{{table}}', $table, $this->files->get(__DIR__.'/stubs/failed_jobs.stub')
+        );
 
-        return false;
+        $this->files->put($path, $stub);
     }
 }

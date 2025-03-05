@@ -5,6 +5,8 @@ namespace Illuminate\Database;
 use Carbon\CarbonInterval;
 use Closure;
 use DateTimeInterface;
+use Doctrine\DBAL\Connection as DoctrineConnection;
+use Doctrine\DBAL\Types\Type;
 use Exception;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Events\QueryExecuted;
@@ -106,7 +108,7 @@ class Connection implements ConnectionInterface
     /**
      * The event dispatcher instance.
      *
-     * @var \Illuminate\Contracts\Events\Dispatcher|null
+     * @var \Illuminate\Contracts\Events\Dispatcher
      */
     protected $events;
 
@@ -127,7 +129,7 @@ class Connection implements ConnectionInterface
     /**
      * The transaction manager instance.
      *
-     * @var \Illuminate\Database\DatabaseTransactionsManager|null
+     * @var \Illuminate\Database\DatabaseTransactionsManager
      */
     protected $transactionsManager;
 
@@ -181,18 +183,25 @@ class Connection implements ConnectionInterface
     protected $pretending = false;
 
     /**
-     * All of the callbacks that should be invoked before a transaction is started.
-     *
-     * @var \Closure[]
-     */
-    protected $beforeStartingTransaction = [];
-
-    /**
      * All of the callbacks that should be invoked before a query is executed.
      *
      * @var \Closure[]
      */
     protected $beforeExecutingCallbacks = [];
+
+    /**
+     * The instance of Doctrine connection.
+     *
+     * @var \Doctrine\DBAL\Connection
+     */
+    protected $doctrineConnection;
+
+    /**
+     * Type mappings that should be registered with new Doctrine connections.
+     *
+     * @var array<string, string>
+     */
+    protected $doctrineTypeMappings = [];
 
     /**
      * The connection resolvers.
@@ -248,9 +257,7 @@ class Connection implements ConnectionInterface
      */
     protected function getDefaultQueryGrammar()
     {
-        ($grammar = new QueryGrammar)->setConnection($this);
-
-        return $grammar;
+        return new QueryGrammar;
     }
 
     /**
@@ -266,7 +273,7 @@ class Connection implements ConnectionInterface
     /**
      * Get the default schema grammar instance.
      *
-     * @return \Illuminate\Database\Schema\Grammars\Grammar|null
+     * @return \Illuminate\Database\Schema\Grammars\Grammar
      */
     protected function getDefaultSchemaGrammar()
     {
@@ -310,7 +317,7 @@ class Connection implements ConnectionInterface
     /**
      * Begin a fluent query against a database table.
      *
-     * @param  \Closure|\Illuminate\Database\Query\Builder|\Illuminate\Contracts\Database\Query\Expression|string  $table
+     * @param  \Closure|\Illuminate\Database\Query\Builder|string  $table
      * @param  string|null  $as
      * @return \Illuminate\Database\Query\Builder
      */
@@ -416,45 +423,12 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Run a select statement against the database and returns all of the result sets.
-     *
-     * @param  string  $query
-     * @param  array  $bindings
-     * @param  bool  $useReadPdo
-     * @return array
-     */
-    public function selectResultSets($query, $bindings = [], $useReadPdo = true)
-    {
-        return $this->run($query, $bindings, function ($query, $bindings) use ($useReadPdo) {
-            if ($this->pretending()) {
-                return [];
-            }
-
-            $statement = $this->prepared(
-                $this->getPdoForSelect($useReadPdo)->prepare($query)
-            );
-
-            $this->bindValues($statement, $this->prepareBindings($bindings));
-
-            $statement->execute();
-
-            $sets = [];
-
-            do {
-                $sets[] = $statement->fetchAll();
-            } while ($statement->nextRowset());
-
-            return $sets;
-        });
-    }
-
-    /**
      * Run a select statement against the database and returns a generator.
      *
      * @param  string  $query
      * @param  array  $bindings
      * @param  bool  $useReadPdo
-     * @return \Generator<int, \stdClass>
+     * @return \Generator
      */
     public function cursor($query, $bindings = [], $useReadPdo = true)
     {
@@ -467,7 +441,7 @@ class Connection implements ConnectionInterface
             // mode and prepare the bindings for the query. Once that's done we will be
             // ready to execute the query against the database and return the cursor.
             $statement = $this->prepared($this->getPdoForSelect($useReadPdo)
-                ->prepare($query));
+                              ->prepare($query));
 
             $this->bindValues(
                 $statement, $this->prepareBindings($bindings)
@@ -625,18 +599,6 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Get the number of open connections for the database.
-     *
-     * @return int|null
-     */
-    public function threadCount()
-    {
-        $query = $this->getQueryGrammar()->compileThreadCount();
-
-        return $query ? $this->scalar($query) : null;
-    }
-
-    /**
      * Execute the given callback in "dry run" mode.
      *
      * @param  \Closure  $callback
@@ -656,27 +618,6 @@ class Connection implements ConnectionInterface
 
             return $this->queryLog;
         });
-    }
-
-    /**
-     * Execute the given callback without "pretending".
-     *
-     * @param  \Closure  $callback
-     * @return mixed
-     */
-    public function withoutPretending(Closure $callback)
-    {
-        if (! $this->pretending) {
-            return $callback();
-        }
-
-        $this->pretending = false;
-
-        try {
-            return $callback();
-        } finally {
-            $this->pretending = true;
-        }
     }
 
     /**
@@ -816,27 +757,10 @@ class Connection implements ConnectionInterface
         // message to include the bindings with SQL, which will make this exception a
         // lot more helpful to the developer instead of just the database's errors.
         catch (Exception $e) {
-            if ($this->isUniqueConstraintError($e)) {
-                throw new UniqueConstraintViolationException(
-                    $this->getName(), $query, $this->prepareBindings($bindings), $e
-                );
-            }
-
             throw new QueryException(
-                $this->getName(), $query, $this->prepareBindings($bindings), $e
+                $query, $this->prepareBindings($bindings), $e
             );
         }
-    }
-
-    /**
-     * Determine if the given database exception was caused by a unique constraint violation.
-     *
-     * @param  \Exception  $exception
-     * @return bool
-     */
-    protected function isUniqueConstraintError(Exception $exception)
-    {
-        return false;
     }
 
     /**
@@ -853,10 +777,6 @@ class Connection implements ConnectionInterface
 
         $this->event(new QueryExecuted($query, $bindings, $time, $this));
 
-        $query = $this->pretending === true
-            ? $this->queryGrammar?->substituteBindingsIntoRawSql($query, $bindings) ?? $query
-            : $query;
-
         if ($this->loggingQueries) {
             $this->queryLog[] = compact('query', 'bindings', 'time');
         }
@@ -865,7 +785,7 @@ class Connection implements ConnectionInterface
     /**
      * Get the elapsed time since a given starting point.
      *
-     * @param  float  $start
+     * @param  int  $start
      * @return float
      */
     protected function getElapsedTime($start)
@@ -992,6 +912,8 @@ class Connection implements ConnectionInterface
     public function reconnect()
     {
         if (is_callable($this->reconnector)) {
+            $this->doctrineConnection = null;
+
             return call_user_func($this->reconnector, $this);
         }
 
@@ -1003,7 +925,7 @@ class Connection implements ConnectionInterface
      *
      * @return void
      */
-    public function reconnectIfMissingConnection()
+    protected function reconnectIfMissingConnection()
     {
         if (is_null($this->pdo)) {
             $this->reconnect();
@@ -1018,19 +940,8 @@ class Connection implements ConnectionInterface
     public function disconnect()
     {
         $this->setPdo(null)->setReadPdo(null);
-    }
 
-    /**
-     * Register a hook to be run just before a database transaction is started.
-     *
-     * @param  \Closure  $callback
-     * @return $this
-     */
-    public function beforeStartingTransaction(Closure $callback)
-    {
-        $this->beforeStartingTransaction[] = $callback;
-
-        return $this;
+        $this->doctrineConnection = null;
     }
 
     /**
@@ -1089,76 +1000,11 @@ class Connection implements ConnectionInterface
      * Get a new raw query expression.
      *
      * @param  mixed  $value
-     * @return \Illuminate\Contracts\Database\Query\Expression
+     * @return \Illuminate\Database\Query\Expression
      */
     public function raw($value)
     {
         return new Expression($value);
-    }
-
-    /**
-     * Escape a value for safe SQL embedding.
-     *
-     * @param  string|float|int|bool|null  $value
-     * @param  bool  $binary
-     * @return string
-     */
-    public function escape($value, $binary = false)
-    {
-        if ($value === null) {
-            return 'null';
-        } elseif ($binary) {
-            return $this->escapeBinary($value);
-        } elseif (is_int($value) || is_float($value)) {
-            return (string) $value;
-        } elseif (is_bool($value)) {
-            return $this->escapeBool($value);
-        } elseif (is_array($value)) {
-            throw new RuntimeException('The database connection does not support escaping arrays.');
-        } else {
-            if (str_contains($value, "\00")) {
-                throw new RuntimeException('Strings with null bytes cannot be escaped. Use the binary escape option.');
-            }
-
-            if (preg_match('//u', $value) === false) {
-                throw new RuntimeException('Strings with invalid UTF-8 byte sequences cannot be escaped.');
-            }
-
-            return $this->escapeString($value);
-        }
-    }
-
-    /**
-     * Escape a string value for safe SQL embedding.
-     *
-     * @param  string  $value
-     * @return string
-     */
-    protected function escapeString($value)
-    {
-        return $this->getReadPdo()->quote($value);
-    }
-
-    /**
-     * Escape a boolean value for safe SQL embedding.
-     *
-     * @param  bool  $value
-     * @return string
-     */
-    protected function escapeBool($value)
-    {
-        return $value ? '1' : '0';
-    }
-
-    /**
-     * Escape a binary value for safe SQL embedding.
-     *
-     * @param  string  $value
-     * @return string
-     */
-    protected function escapeBinary($value)
-    {
-        throw new RuntimeException('The database connection does not support escaping binary values.');
     }
 
     /**
@@ -1218,6 +1064,110 @@ class Connection implements ConnectionInterface
         $this->readOnWriteConnection = $value;
 
         return $this;
+    }
+
+    /**
+     * Is Doctrine available?
+     *
+     * @return bool
+     */
+    public function isDoctrineAvailable()
+    {
+        return class_exists('Doctrine\DBAL\Connection');
+    }
+
+    /**
+     * Indicates whether native alter operations will be used when dropping or renaming columns, even if Doctrine DBAL is installed.
+     *
+     * @return bool
+     */
+    public function usingNativeSchemaOperations()
+    {
+        return ! $this->isDoctrineAvailable() || SchemaBuilder::$alwaysUsesNativeSchemaOperationsIfPossible;
+    }
+
+    /**
+     * Get a Doctrine Schema Column instance.
+     *
+     * @param  string  $table
+     * @param  string  $column
+     * @return \Doctrine\DBAL\Schema\Column
+     */
+    public function getDoctrineColumn($table, $column)
+    {
+        $schema = $this->getDoctrineSchemaManager();
+
+        return $schema->listTableDetails($table)->getColumn($column);
+    }
+
+    /**
+     * Get the Doctrine DBAL schema manager for the connection.
+     *
+     * @return \Doctrine\DBAL\Schema\AbstractSchemaManager
+     */
+    public function getDoctrineSchemaManager()
+    {
+        $connection = $this->getDoctrineConnection();
+
+        // Doctrine v2 expects one parameter while v3 expects two. 2nd will be ignored on v2...
+        return $this->getDoctrineDriver()->getSchemaManager(
+            $connection,
+            $connection->getDatabasePlatform()
+        );
+    }
+
+    /**
+     * Get the Doctrine DBAL database connection instance.
+     *
+     * @return \Doctrine\DBAL\Connection
+     */
+    public function getDoctrineConnection()
+    {
+        if (is_null($this->doctrineConnection)) {
+            $driver = $this->getDoctrineDriver();
+
+            $this->doctrineConnection = new DoctrineConnection(array_filter([
+                'pdo' => $this->getPdo(),
+                'dbname' => $this->getDatabaseName(),
+                'driver' => $driver->getName(),
+                'serverVersion' => $this->getConfig('server_version'),
+            ]), $driver);
+
+            foreach ($this->doctrineTypeMappings as $name => $type) {
+                $this->doctrineConnection
+                    ->getDatabasePlatform()
+                    ->registerDoctrineTypeMapping($type, $name);
+            }
+        }
+
+        return $this->doctrineConnection;
+    }
+
+    /**
+     * Register a custom Doctrine mapping type.
+     *
+     * @param  Type|class-string<Type>  $class
+     * @param  string  $name
+     * @param  string  $type
+     * @return void
+     *
+     * @throws \Doctrine\DBAL\DBALException
+     * @throws \RuntimeException
+     */
+    public function registerDoctrineType(Type|string $class, string $name, string $type): void
+    {
+        if (! $this->isDoctrineAvailable()) {
+            throw new RuntimeException(
+                'Registering a custom Doctrine type requires Doctrine DBAL (doctrine/dbal).'
+            );
+        }
+
+        if (! Type::hasType($name)) {
+            Type::getTypeRegistry()
+                ->register($name, is_string($class) ? new $class() : $class);
+        }
+
+        $this->doctrineTypeMappings[$name] = $type;
     }
 
     /**
@@ -1357,16 +1307,6 @@ class Connection implements ConnectionInterface
     public function getDriverName()
     {
         return $this->getConfig('driver');
-    }
-
-    /**
-     * Get a human-readable name for the given connection driver.
-     *
-     * @return string
-     */
-    public function getDriverTitle()
-    {
-        return $this->getDriverName();
     }
 
     /**
@@ -1515,22 +1455,6 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Get the connection query log with embedded bindings.
-     *
-     * @return array
-     */
-    public function getRawQueryLog()
-    {
-        return array_map(fn (array $log) => [
-            'raw_query' => $this->queryGrammar->substituteBindingsIntoRawSql(
-                $log['query'],
-                $this->prepareBindings($log['bindings'])
-            ),
-            'time' => $log['time'],
-        ], $this->getQueryLog());
-    }
-
-    /**
      * Clear the query log.
      *
      * @return void
@@ -1634,43 +1558,14 @@ class Connection implements ConnectionInterface
     /**
      * Set the table prefix and return the grammar.
      *
-     * @template TGrammar of \Illuminate\Database\Grammar
-     *
-     * @param  TGrammar  $grammar
-     * @return TGrammar
+     * @param  \Illuminate\Database\Grammar  $grammar
+     * @return \Illuminate\Database\Grammar
      */
     public function withTablePrefix(Grammar $grammar)
     {
         $grammar->setTablePrefix($this->tablePrefix);
 
         return $grammar;
-    }
-
-    /**
-     * Execute the given callback without table prefix.
-     *
-     * @param  \Closure  $callback
-     * @return void
-     */
-    public function withoutTablePrefix(Closure $callback): void
-    {
-        $tablePrefix = $this->getTablePrefix();
-
-        $this->setTablePrefix('');
-
-        $callback($this);
-
-        $this->setTablePrefix($tablePrefix);
-    }
-
-    /**
-     * Get the server version for the connection.
-     *
-     * @return string
-     */
-    public function getServerVersion(): string
-    {
-        return $this->getPdo()->getAttribute(PDO::ATTR_SERVER_VERSION);
     }
 
     /**
@@ -1689,7 +1584,7 @@ class Connection implements ConnectionInterface
      * Get the connection resolver for the given driver.
      *
      * @param  string  $driver
-     * @return \Closure|null
+     * @return mixed
      */
     public static function getResolver($driver)
     {

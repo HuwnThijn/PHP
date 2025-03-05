@@ -2,33 +2,43 @@
 
 namespace Illuminate\Database\Query;
 
-use Illuminate\Contracts\Database\Query\Expression as ExpressionContract;
-use Illuminate\Database\Grammar;
-
-/**
- * @template TValue of string|int|float
- */
-class Expression implements ExpressionContract
+class Expression
 {
+    /**
+     * The value of the expression.
+     *
+     * @var mixed
+     */
+    protected $value;
+
     /**
      * Create a new raw query expression.
      *
-     * @param  TValue  $value
+     * @param  mixed  $value
      * @return void
      */
-    public function __construct(
-        protected $value
-    ) {
+    public function __construct($value)
+    {
+        $this->value = $value;
     }
 
     /**
      * Get the value of the expression.
      *
-     * @param  \Illuminate\Database\Grammar  $grammar
-     * @return TValue
+     * @return mixed
      */
-    public function getValue(Grammar $grammar)
+    public function getValue()
     {
         return $this->value;
+    }
+
+    /**
+     * Get the value of the expression.
+     *
+     * @return string
+     */
+    public function __toString()
+    {
+        return (string) $this->getValue();
     }
 }

@@ -30,9 +30,9 @@ class_exists(SessionBagProxy::class);
  *
  * @implements \IteratorAggregate<string, mixed>
  */
-class Session implements FlashBagAwareSessionInterface, \IteratorAggregate, \Countable
+class Session implements SessionInterface, \IteratorAggregate, \Countable
 {
-    protected SessionStorageInterface $storage;
+    protected $storage;
 
     private string $flashName;
     private string $attributeName;
@@ -40,60 +40,87 @@ class Session implements FlashBagAwareSessionInterface, \IteratorAggregate, \Cou
     private int $usageIndex = 0;
     private ?\Closure $usageReporter;
 
-    public function __construct(?SessionStorageInterface $storage = null, ?AttributeBagInterface $attributes = null, ?FlashBagInterface $flashes = null, ?callable $usageReporter = null)
+    public function __construct(SessionStorageInterface $storage = null, AttributeBagInterface $attributes = null, FlashBagInterface $flashes = null, callable $usageReporter = null)
     {
         $this->storage = $storage ?? new NativeSessionStorage();
-        $this->usageReporter = null === $usageReporter ? null : $usageReporter(...);
+        $this->usageReporter = $usageReporter instanceof \Closure || !\is_callable($usageReporter) ? $usageReporter : \Closure::fromCallable($usageReporter);
 
-        $attributes ??= new AttributeBag();
+        $attributes = $attributes ?? new AttributeBag();
         $this->attributeName = $attributes->getName();
         $this->registerBag($attributes);
 
-        $flashes ??= new FlashBag();
+        $flashes = $flashes ?? new FlashBag();
         $this->flashName = $flashes->getName();
         $this->registerBag($flashes);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function start(): bool
     {
         return $this->storage->start();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function has(string $name): bool
     {
         return $this->getAttributeBag()->has($name);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function get(string $name, mixed $default = null): mixed
     {
         return $this->getAttributeBag()->get($name, $default);
     }
 
-    public function set(string $name, mixed $value): void
+    /**
+     * {@inheritdoc}
+     */
+    public function set(string $name, mixed $value)
     {
         $this->getAttributeBag()->set($name, $value);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function all(): array
     {
         return $this->getAttributeBag()->all();
     }
 
-    public function replace(array $attributes): void
+    /**
+     * {@inheritdoc}
+     */
+    public function replace(array $attributes)
     {
         $this->getAttributeBag()->replace($attributes);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function remove(string $name): mixed
     {
         return $this->getAttributeBag()->remove($name);
     }
 
-    public function clear(): void
+    /**
+     * {@inheritdoc}
+     */
+    public function clear()
     {
         $this->getAttributeBag()->clear();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isStarted(): bool
     {
         return $this->storage->isStarted();
@@ -134,7 +161,7 @@ class Session implements FlashBagAwareSessionInterface, \IteratorAggregate, \Cou
             }
         }
         foreach ($this->data as &$data) {
-            if ($data) {
+            if (!empty($data)) {
                 return false;
             }
         }
@@ -142,45 +169,69 @@ class Session implements FlashBagAwareSessionInterface, \IteratorAggregate, \Cou
         return true;
     }
 
-    public function invalidate(?int $lifetime = null): bool
+    /**
+     * {@inheritdoc}
+     */
+    public function invalidate(int $lifetime = null): bool
     {
         $this->storage->clear();
 
         return $this->migrate(true, $lifetime);
     }
 
-    public function migrate(bool $destroy = false, ?int $lifetime = null): bool
+    /**
+     * {@inheritdoc}
+     */
+    public function migrate(bool $destroy = false, int $lifetime = null): bool
     {
         return $this->storage->regenerate($destroy, $lifetime);
     }
 
-    public function save(): void
+    /**
+     * {@inheritdoc}
+     */
+    public function save()
     {
         $this->storage->save();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getId(): string
     {
         return $this->storage->getId();
     }
 
-    public function setId(string $id): void
+    /**
+     * {@inheritdoc}
+     */
+    public function setId(string $id)
     {
         if ($this->storage->getId() !== $id) {
             $this->storage->setId($id);
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getName(): string
     {
         return $this->storage->getName();
     }
 
-    public function setName(string $name): void
+    /**
+     * {@inheritdoc}
+     */
+    public function setName(string $name)
     {
         $this->storage->setName($name);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getMetadataBag(): MetadataBag
     {
         ++$this->usageIndex;
@@ -191,11 +242,17 @@ class Session implements FlashBagAwareSessionInterface, \IteratorAggregate, \Cou
         return $this->storage->getMetadataBag();
     }
 
-    public function registerBag(SessionBagInterface $bag): void
+    /**
+     * {@inheritdoc}
+     */
+    public function registerBag(SessionBagInterface $bag)
     {
         $this->storage->registerBag(new SessionBagProxy($bag, $this->data, $this->usageIndex, $this->usageReporter));
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getBag(string $name): SessionBagInterface
     {
         $bag = $this->storage->getBag($name);

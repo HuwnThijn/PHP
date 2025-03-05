@@ -2,15 +2,12 @@
 
 namespace Illuminate\Notifications\Channels;
 
-use Illuminate\Config\Repository as ConfigRepository;
-use Illuminate\Container\Container;
 use Illuminate\Contracts\Mail\Factory as MailFactory;
 use Illuminate\Contracts\Mail\Mailable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
@@ -49,7 +46,7 @@ class MailChannel
      *
      * @param  mixed  $notifiable
      * @param  \Illuminate\Notifications\Notification  $notification
-     * @return \Illuminate\Mail\SentMessage|null
+     * @return void
      */
     public function send($notifiable, Notification $notification)
     {
@@ -64,7 +61,7 @@ class MailChannel
             return $message->send($this->mailer);
         }
 
-        return $this->mailer->mailer($message->mailer ?? null)->send(
+        $this->mailer->mailer($message->mailer ?? null)->send(
             $this->buildView($message),
             array_merge($message->data(), $this->additionalMessageData($notification)),
             $this->messageBuilder($notifiable, $notification, $message)
@@ -98,51 +95,14 @@ class MailChannel
             return $message->view;
         }
 
+        if (property_exists($message, 'theme') && ! is_null($message->theme)) {
+            $this->markdown->theme($message->theme);
+        }
+
         return [
-            'html' => $this->buildMarkdownHtml($message),
-            'text' => $this->buildMarkdownText($message),
+            'html' => $this->markdown->render($message->markdown, $message->data()),
+            'text' => $this->markdown->renderText($message->markdown, $message->data()),
         ];
-    }
-
-    /**
-     * Build the HTML view for a Markdown message.
-     *
-     * @param  \Illuminate\Notifications\Messages\MailMessage  $message
-     * @return \Closure
-     */
-    protected function buildMarkdownHtml($message)
-    {
-        return fn ($data) => $this->markdownRenderer($message)->render(
-            $message->markdown, array_merge($data, $message->data()),
-        );
-    }
-
-    /**
-     * Build the text view for a Markdown message.
-     *
-     * @param  \Illuminate\Notifications\Messages\MailMessage  $message
-     * @return \Closure
-     */
-    protected function buildMarkdownText($message)
-    {
-        return fn ($data) => $this->markdownRenderer($message)->renderText(
-            $message->markdown, array_merge($data, $message->data()),
-        );
-    }
-
-    /**
-     * Get the Markdown implementation.
-     *
-     * @param  \Illuminate\Notifications\Messages\MailMessage  $message
-     * @return \Illuminate\Mail\Markdown
-     */
-    protected function markdownRenderer($message)
-    {
-        $config = Container::getInstance()->get(ConfigRepository::class);
-
-        $theme = $message->theme ?? $config->get('mail.markdown.theme', 'default');
-
-        return $this->markdown->theme($theme);
     }
 
     /**
@@ -263,7 +223,7 @@ class MailChannel
             $recipients = [$recipients];
         }
 
-        return (new Collection($recipients))->mapWithKeys(function ($recipient, $email) {
+        return collect($recipients)->mapWithKeys(function ($recipient, $email) {
             return is_numeric($email)
                     ? [$email => (is_string($recipient) ? $recipient : $recipient->email)]
                     : [$email => $recipient];

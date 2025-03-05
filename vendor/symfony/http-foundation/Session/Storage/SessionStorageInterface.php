@@ -41,7 +41,7 @@ interface SessionStorageInterface
     /**
      * Sets the session ID.
      */
-    public function setId(string $id): void;
+    public function setId(string $id);
 
     /**
      * Returns the session name.
@@ -51,7 +51,7 @@ interface SessionStorageInterface
     /**
      * Sets the session name.
      */
-    public function setName(string $name): void;
+    public function setName(string $name);
 
     /**
      * Regenerates id that represents this storage.
@@ -72,15 +72,15 @@ interface SessionStorageInterface
      * Otherwise session data could get lost again for concurrent requests with the
      * new ID. One result could be that you get logged out after just logging in.
      *
-     * @param bool     $destroy  Destroy session when regenerating?
-     * @param int|null $lifetime Sets the cookie lifetime for the session cookie. A null value
-     *                           will leave the system settings unchanged, 0 sets the cookie
-     *                           to expire with browser session. Time is in seconds, and is
-     *                           not a Unix timestamp.
+     * @param bool $destroy  Destroy session when regenerating?
+     * @param int  $lifetime Sets the cookie lifetime for the session cookie. A null value
+     *                       will leave the system settings unchanged, 0 sets the cookie
+     *                       to expire with browser session. Time is in seconds, and is
+     *                       not a Unix timestamp.
      *
      * @throws \RuntimeException If an error occurs while regenerating this storage
      */
-    public function regenerate(bool $destroy = false, ?int $lifetime = null): bool;
+    public function regenerate(bool $destroy = false, int $lifetime = null): bool;
 
     /**
      * Force the session to be saved and closed.
@@ -93,12 +93,12 @@ interface SessionStorageInterface
      * @throws \RuntimeException if the session is saved without being started, or if the session
      *                           is already closed
      */
-    public function save(): void;
+    public function save();
 
     /**
      * Clear all session data in memory.
      */
-    public function clear(): void;
+    public function clear();
 
     /**
      * Gets a SessionBagInterface by name.
@@ -110,7 +110,7 @@ interface SessionStorageInterface
     /**
      * Registers a SessionBagInterface for use.
      */
-    public function registerBag(SessionBagInterface $bag): void;
+    public function registerBag(SessionBagInterface $bag);
 
     public function getMetadataBag(): MetadataBag;
 }

@@ -13,7 +13,6 @@ trait ResolvesDumpSource
      */
     protected $editorHrefs = [
         'atom' => 'atom://core/open/file?filename={file}&line={line}',
-        'cursor' => 'cursor://file/{file}:{line}',
         'emacs' => 'emacs://open?url=file://{file}&line={line}',
         'idea' => 'idea://open?file={file}&line={line}',
         'macvim' => 'mvim://open/?url=file://{file}&line={line}',
@@ -119,7 +118,7 @@ trait ResolvesDumpSource
      */
     protected function isCompiledViewFile($file)
     {
-        return str_starts_with($file, $this->compiledViewPath) && str_ends_with($file, '.php');
+        return str_starts_with($file, $this->compiledViewPath);
     }
 
     /**
@@ -150,7 +149,7 @@ trait ResolvesDumpSource
     {
         try {
             $editor = config('app.editor');
-        } catch (Throwable) {
+        } catch (Throwable $e) {
             // ..
         }
 
@@ -166,11 +165,13 @@ trait ResolvesDumpSource
             $file = str_replace($this->basePath, $basePath, $file);
         }
 
-        return str_replace(
+        $href = str_replace(
             ['{file}', '{line}'],
             [$file, is_null($line) ? 1 : $line],
             $href,
         );
+
+        return $href;
     }
 
     /**

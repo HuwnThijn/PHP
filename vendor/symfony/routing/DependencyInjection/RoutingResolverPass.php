@@ -25,7 +25,7 @@ class RoutingResolverPass implements CompilerPassInterface
 {
     use PriorityTaggedServiceTrait;
 
-    public function process(ContainerBuilder $container): void
+    public function process(ContainerBuilder $container)
     {
         if (false === $container->hasDefinition('routing.resolver')) {
             return;

@@ -2,10 +2,9 @@
 
 namespace Illuminate\Database\Eloquent\Relations\Concerns;
 
-use InvalidArgumentException;
+use BackedEnum;
+use Doctrine\Instantiator\Exception\InvalidArgumentException;
 use UnitEnum;
-
-use function Illuminate\Support\enum_value;
 
 trait InteractsWithDictionary
 {
@@ -15,7 +14,7 @@ trait InteractsWithDictionary
      * @param  mixed  $attribute
      * @return mixed
      *
-     * @throws \InvalidArgumentException
+     * @throws \Doctrine\Instantiator\Exception\InvalidArgumentException
      */
     protected function getDictionaryKey($attribute)
     {
@@ -24,8 +23,9 @@ trait InteractsWithDictionary
                 return $attribute->__toString();
             }
 
-            if ($attribute instanceof UnitEnum) {
-                return enum_value($attribute);
+            if (function_exists('enum_exists') &&
+                $attribute instanceof UnitEnum) {
+                return $attribute instanceof BackedEnum ? $attribute->value : $attribute->name;
             }
 
             throw new InvalidArgumentException('Model attribute value is an object but does not have a __toString method.');

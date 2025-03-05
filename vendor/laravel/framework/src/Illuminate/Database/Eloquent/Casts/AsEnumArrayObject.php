@@ -7,17 +7,15 @@ use Illuminate\Contracts\Database\Eloquent\Castable;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\Collection;
 
-use function Illuminate\Support\enum_value;
-
 class AsEnumArrayObject implements Castable
 {
     /**
      * Get the caster class to use when casting from / to this cast target.
      *
-     * @template TEnum of \UnitEnum
+     * @template TEnum
      *
      * @param  array{class-string<TEnum>}  $arguments
-     * @return \Illuminate\Contracts\Database\Eloquent\CastsAttributes<\Illuminate\Database\Eloquent\Casts\ArrayObject<array-key, TEnum>, iterable<TEnum>>
+     * @return CastsAttributes<ArrayObject<array-key, TEnum>, iterable<TEnum>>
      */
     public static function castUsing(array $arguments)
     {
@@ -32,11 +30,11 @@ class AsEnumArrayObject implements Castable
 
             public function get($model, $key, $value, $attributes)
             {
-                if (! isset($attributes[$key])) {
+                if (! isset($attributes[$key]) || is_null($attributes[$key])) {
                     return;
                 }
 
-                $data = Json::decode($attributes[$key]);
+                $data = json_decode($attributes[$key], true);
 
                 if (! is_array($data)) {
                     return;
@@ -63,7 +61,7 @@ class AsEnumArrayObject implements Castable
                     $storable[] = $this->getStorableEnumValue($enum);
                 }
 
-                return [$key => Json::encode($storable)];
+                return [$key => json_encode($storable)];
             }
 
             public function serialize($model, string $key, $value, array $attributes)
@@ -79,19 +77,8 @@ class AsEnumArrayObject implements Castable
                     return $enum;
                 }
 
-                return enum_value($enum);
+                return $enum instanceof BackedEnum ? $enum->value : $enum->name;
             }
         };
-    }
-
-    /**
-     * Specify the Enum for the cast.
-     *
-     * @param  class-string  $class
-     * @return string
-     */
-    public static function of($class)
-    {
-        return static::class.':'.$class;
     }
 }

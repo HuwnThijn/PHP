@@ -66,20 +66,6 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     protected $stringableHandlers = [];
 
     /**
-     * The callback that is responsible for handling missing translation keys.
-     *
-     * @var callable|null
-     */
-    protected $missingTranslationKeyCallback;
-
-    /**
-     * Indicates whether missing translation keys should be handled.
-     *
-     * @var bool
-     */
-    protected $handleMissingTranslationKeys = true;
-
-    /**
      * Create a new translator instance.
      *
      * @param  \Illuminate\Contracts\Translation\Loader  $loader
@@ -117,16 +103,7 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     {
         $locale = $locale ?: $this->locale;
 
-        // We should temporarily disable the handling of missing translation keys
-        // while performing the existence check. After the check, we will turn
-        // the missing translation keys handling back to its original value.
-        $handleMissingTranslationKeys = $this->handleMissingTranslationKeys;
-
-        $this->handleMissingTranslationKeys = false;
-
         $line = $this->get($key, [], $locale, $fallback);
-
-        $this->handleMissingTranslationKeys = $handleMissingTranslationKeys;
 
         // For JSON translations, the loaded files will contain the correct line.
         // Otherwise, we must assume we are handling typical translation file
@@ -169,17 +146,13 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
             // the translator was instantiated. Then, we can load the lines and return.
             $locales = $fallback ? $this->localeArray($locale) : [$locale];
 
-            foreach ($locales as $languageLineLocale) {
+            foreach ($locales as $locale) {
                 if (! is_null($line = $this->getLine(
-                    $namespace, $group, $languageLineLocale, $item, $replace
+                    $namespace, $group, $locale, $item, $replace
                 ))) {
                     return $line;
                 }
             }
-
-            $key = $this->handleMissingTranslationKey(
-                $key, $replace, $locale, $fallback
-            );
         }
 
         // If the line doesn't exist, we will return back the key which was requested as
@@ -192,7 +165,7 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
      * Get a translation according to an integer value.
      *
      * @param  string  $key
-     * @param  \Countable|int|float|array  $number
+     * @param  \Countable|int|array  $number
      * @param  array  $replace
      * @param  string|null  $locale
      * @return string
@@ -200,7 +173,7 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     public function choice($key, $number, array $replace = [], $locale = null)
     {
         $line = $this->get(
-            $key, [], $locale = $this->localeForChoice($key, $locale)
+            $key, $replace, $locale = $this->localeForChoice($locale)
         );
 
         // If the given "number" is actually an array or countable we will simply count the
@@ -210,9 +183,7 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
             $number = count($number);
         }
 
-        if (! isset($replace['count'])) {
-            $replace['count'] = $number;
-        }
+        $replace['count'] = $number;
 
         return $this->makeReplacements(
             $this->getSelector()->choose($line, $number, $locale), $replace
@@ -222,15 +193,12 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     /**
      * Get the proper locale for a choice operation.
      *
-     * @param  string  $key
      * @param  string|null  $locale
      * @return string
      */
-    protected function localeForChoice($key, $locale)
+    protected function localeForChoice($locale)
     {
-        $locale = $locale ?: $this->locale;
-
-        return $this->hasForLocale($key, $locale) ? $locale : $this->fallback;
+        return $locale ?: $this->locale ?: $this->fallback;
     }
 
     /**
@@ -276,22 +244,12 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
         $shouldReplace = [];
 
         foreach ($replace as $key => $value) {
-            if ($value instanceof Closure) {
-                $line = preg_replace_callback(
-                    '/<'.$key.'>(.*?)<\/'.$key.'>/',
-                    fn ($args) => $value($args[1]),
-                    $line
-                );
-
-                continue;
-            }
-
             if (is_object($value) && isset($this->stringableHandlers[get_class($value)])) {
                 $value = call_user_func($this->stringableHandlers[get_class($value)], $value);
             }
 
-            $shouldReplace[':'.Str::ucfirst($key)] = Str::ucfirst($value ?? '');
-            $shouldReplace[':'.Str::upper($key)] = Str::upper($value ?? '');
+            $shouldReplace[':'.Str::ucfirst($key ?? '')] = Str::ucfirst($value ?? '');
+            $shouldReplace[':'.Str::upper($key ?? '')] = Str::upper($value ?? '');
             $shouldReplace[':'.$key] = $value;
         }
 
@@ -351,48 +309,6 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     }
 
     /**
-     * Handle a missing translation key.
-     *
-     * @param  string  $key
-     * @param  array  $replace
-     * @param  string|null  $locale
-     * @param  bool  $fallback
-     * @return string
-     */
-    protected function handleMissingTranslationKey($key, $replace, $locale, $fallback)
-    {
-        if (! $this->handleMissingTranslationKeys ||
-            ! isset($this->missingTranslationKeyCallback)) {
-            return $key;
-        }
-
-        // Prevent infinite loops...
-        $this->handleMissingTranslationKeys = false;
-
-        $key = call_user_func(
-            $this->missingTranslationKeyCallback,
-            $key, $replace, $locale, $fallback
-        ) ?? $key;
-
-        $this->handleMissingTranslationKeys = true;
-
-        return $key;
-    }
-
-    /**
-     * Register a callback that is responsible for handling missing translation keys.
-     *
-     * @param  callable|null  $callback
-     * @return static
-     */
-    public function handleMissingKeysUsing(?callable $callback)
-    {
-        $this->missingTranslationKeyCallback = $callback;
-
-        return $this;
-    }
-
-    /**
      * Add a new namespace to the loader.
      *
      * @param  string  $namespace
@@ -402,17 +318,6 @@ class Translator extends NamespacedItemResolver implements TranslatorContract
     public function addNamespace($namespace, $hint)
     {
         $this->loader->addNamespace($namespace, $hint);
-    }
-
-    /**
-     * Add a new path to the loader.
-     *
-     * @param  string  $path
-     * @return void
-     */
-    public function addPath($path)
-    {
-        $this->loader->addPath($path);
     }
 
     /**

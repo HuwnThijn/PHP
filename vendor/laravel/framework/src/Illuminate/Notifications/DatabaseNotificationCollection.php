@@ -2,15 +2,9 @@
 
 namespace Illuminate\Notifications;
 
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Collection;
 
-/**
- * @template TKey of array-key
- * @template TModel of DatabaseNotification
- *
- * @extends \Illuminate\Database\Eloquent\Collection<TKey, TModel>
- */
-class DatabaseNotificationCollection extends EloquentCollection
+class DatabaseNotificationCollection extends Collection
 {
     /**
      * Mark all notifications as read.

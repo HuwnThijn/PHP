@@ -51,14 +51,18 @@ trait ForwardsCalls
     {
         $result = $this->forwardCallTo($object, $method, $parameters);
 
-        return $result === $object ? $this : $result;
+        if ($result === $object) {
+            return $this;
+        }
+
+        return $result;
     }
 
     /**
      * Throw a bad method call exception for the given method.
      *
      * @param  string  $method
-     * @return never
+     * @return void
      *
      * @throws \BadMethodCallException
      */

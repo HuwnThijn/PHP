@@ -16,16 +16,16 @@ namespace Symfony\Component\Uid;
  *
  * @author Grégoire Pineau <lyrixx@lyrixx.info>
  */
-class UuidV1 extends Uuid implements TimeBasedUidInterface
+class UuidV1 extends Uuid
 {
     protected const TYPE = 1;
 
-    private static string $clockSeq;
+    private static ?string $clockSeq = null;
 
-    public function __construct(?string $uuid = null)
+    public function __construct(string $uuid = null)
     {
         if (null === $uuid) {
-            $this->uid = strtolower(uuid_create(static::TYPE));
+            $this->uid = uuid_create(static::TYPE);
         } else {
             parent::__construct($uuid, true);
         }
@@ -38,22 +38,10 @@ class UuidV1 extends Uuid implements TimeBasedUidInterface
 
     public function getNode(): string
     {
-        return substr($this->uid, -12);
+        return uuid_mac($this->uid);
     }
 
-    public function toV6(): UuidV6
-    {
-        $uuid = $this->uid;
-
-        return new UuidV6(substr($uuid, 15, 3).substr($uuid, 9, 4).$uuid[0].'-'.substr($uuid, 1, 4).'-6'.substr($uuid, 5, 3).substr($uuid, 18, 6).substr($uuid, 24));
-    }
-
-    public function toV7(): UuidV7
-    {
-        return $this->toV6()->toV7();
-    }
-
-    public static function generate(?\DateTimeInterface $time = null, ?Uuid $node = null): string
+    public static function generate(\DateTimeInterface $time = null, Uuid $node = null): string
     {
         $uuid = !$time || !$node ? uuid_create(static::TYPE) : parent::NIL;
 
@@ -61,13 +49,13 @@ class UuidV1 extends Uuid implements TimeBasedUidInterface
             if ($node) {
                 // use clock_seq from the node
                 $seq = substr($node->uid, 19, 4);
-            } elseif (!$seq = self::$clockSeq ?? '') {
+            } else {
                 // generate a static random clock_seq to prevent any collisions with the real one
                 $seq = substr($uuid, 19, 4);
 
-                do {
-                    self::$clockSeq = \sprintf('%04x', random_int(0, 0x3FFF) | 0x8000);
-                } while ($seq === self::$clockSeq);
+                while (null === self::$clockSeq || $seq === self::$clockSeq) {
+                    self::$clockSeq = sprintf('%04x', random_int(0, 0x3FFF) | 0x8000);
+                }
 
                 $seq = self::$clockSeq;
             }

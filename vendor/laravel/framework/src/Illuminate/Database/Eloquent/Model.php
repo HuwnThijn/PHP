@@ -19,27 +19,20 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection as BaseCollection;
 use Illuminate\Support\Str;
-use Illuminate\Support\Stringable as SupportStringable;
 use Illuminate\Support\Traits\ForwardsCalls;
-use JsonException;
 use JsonSerializable;
 use LogicException;
-use Stringable;
 
-abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToString, HasBroadcastChannel, Jsonable, JsonSerializable, QueueableEntity, Stringable, UrlRoutable
+abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToString, HasBroadcastChannel, Jsonable, JsonSerializable, QueueableEntity, UrlRoutable
 {
     use Concerns\HasAttributes,
         Concerns\HasEvents,
         Concerns\HasGlobalScopes,
         Concerns\HasRelationships,
         Concerns\HasTimestamps,
-        Concerns\HasUniqueIds,
         Concerns\HidesAttributes,
         Concerns\GuardsAttributes,
-        Concerns\PreventsCircularRecursion,
         ForwardsCalls;
-    /** @use HasCollection<\Illuminate\Database\Eloquent\Collection<array-key, static & self>> */
-    use HasCollection;
 
     /**
      * The connection name for the model.
@@ -51,7 +44,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * The table associated with the model.
      *
-     * @var string|null
+     * @var string
      */
     protected $table;
 
@@ -112,7 +105,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     public $exists = false;
 
     /**
-     * Indicates if the model was inserted during the object's lifecycle.
+     * Indicates if the model was inserted during the current request lifecycle.
      *
      * @var bool
      */
@@ -135,7 +128,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * The event dispatcher instance.
      *
-     * @var \Illuminate\Contracts\Events\Dispatcher|null
+     * @var \Illuminate\Contracts\Events\Dispatcher
      */
     protected static $dispatcher;
 
@@ -215,20 +208,6 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * @var bool
      */
     protected static $isBroadcasting = true;
-
-    /**
-     * The Eloquent query builder class to use for the model.
-     *
-     * @var class-string<\Illuminate\Database\Eloquent\Builder<*>>
-     */
-    protected static string $builder = Builder::class;
-
-    /**
-     * The Eloquent collection class to use for the model.
-     *
-     * @var class-string<\Illuminate\Database\Eloquent\Collection<*, *>>
-     */
-    protected static string $collectionClass = Collection::class;
 
     /**
      * The name of the "created at" column.
@@ -488,7 +467,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     }
 
     /**
-     * Register a callback that is responsible for handling missing attribute violations.
+     * Register a callback that is responsible for handling lazy loading violations.
      *
      * @param  callable|null  $callback
      * @return void
@@ -601,9 +580,9 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function qualifyColumns($columns)
     {
-        return (new BaseCollection($columns))
-            ->map(fn ($column) => $this->qualifyColumn($column))
-            ->all();
+        return collect($columns)->map(function ($column) {
+            return $this->qualifyColumn($column);
+        })->all();
     }
 
     /**
@@ -659,7 +638,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * Begin querying the model on a given connection.
      *
      * @param  string|null  $connection
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public static function on($connection = null)
     {
@@ -676,7 +655,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Begin querying the model on the write connection.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public static function onWriteConnection()
     {
@@ -700,7 +679,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * Begin querying a model with eager loading.
      *
      * @param  array|string  $relations
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public static function with($relations)
     {
@@ -766,7 +745,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      *
      * @param  array|string  $relations
      * @param  string  $column
-     * @param  string|null  $function
+     * @param  string  $function
      * @return $this
      */
     public function loadAggregate($relations, $column, $function = null)
@@ -854,7 +833,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * @param  string  $relation
      * @param  array  $relations
      * @param  string  $column
-     * @param  string|null  $function
+     * @param  string  $function
      * @return $this
      */
     public function loadMorphAggregate($relation, $relations, $column, $function = null)
@@ -971,8 +950,10 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     protected function incrementOrDecrement($column, $amount, $extra, $method)
     {
+        $query = $this->newQueryWithoutRelationships();
+
         if (! $this->exists) {
-            return $this->newQueryWithoutRelationships()->{$method}($column, $amount, $extra);
+            return $query->{$method}($column, $amount, $extra);
         }
 
         $this->{$column} = $this->isClassDeviable($column)
@@ -985,11 +966,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
             return false;
         }
 
-        if ($this->isClassDeviable($column)) {
-            $amount = (clone $this)->setAttribute($column, $amount)->getAttributeFromArray($column);
-        }
-
-        return tap($this->setKeysForSaveQuery($this->newQueryWithoutScopes())->{$method}($column, $amount, $extra), function () use ($column) {
+        return tap($this->setKeysForSaveQuery($query)->{$method}($column, $amount, $extra), function () use ($column) {
             $this->syncChanges();
 
             $this->fireModelEvent('updated', false);
@@ -1058,9 +1035,9 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     protected function incrementQuietly($column, $amount = 1, array $extra = [])
     {
-        return static::withoutEvents(
-            fn () => $this->incrementOrDecrement($column, $amount, $extra, 'increment')
-        );
+        return static::withoutEvents(function () use ($column, $amount, $extra) {
+            return $this->incrementOrDecrement($column, $amount, $extra, 'increment');
+        });
     }
 
     /**
@@ -1073,9 +1050,9 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     protected function decrementQuietly($column, $amount = 1, array $extra = [])
     {
-        return static::withoutEvents(
-            fn () => $this->incrementOrDecrement($column, $amount, $extra, 'decrement')
-        );
+        return static::withoutEvents(function () use ($column, $amount, $extra) {
+            return $this->incrementOrDecrement($column, $amount, $extra, 'decrement');
+        });
     }
 
     /**
@@ -1085,27 +1062,25 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function push()
     {
-        return $this->withoutRecursion(function () {
-            if (! $this->save()) {
-                return false;
-            }
+        if (! $this->save()) {
+            return false;
+        }
 
-            // To sync all of the relationships to the database, we will simply spin through
-            // the relationships and save each model via this "push" method, which allows
-            // us to recurse into all of these nested relations for the model instance.
-            foreach ($this->relations as $models) {
-                $models = $models instanceof Collection
-                    ? $models->all() : [$models];
+        // To sync all of the relationships to the database, we will simply spin through
+        // the relationships and save each model via this "push" method, which allows
+        // us to recurse into all of these nested relations for the model instance.
+        foreach ($this->relations as $models) {
+            $models = $models instanceof Collection
+                ? $models->all() : [$models];
 
-                foreach (array_filter($models) as $model) {
-                    if (! $model->push()) {
-                        return false;
-                    }
+            foreach (array_filter($models) as $model) {
+                if (! $model->push()) {
+                    return false;
                 }
             }
+        }
 
-            return true;
-        }, true);
+        return true;
     }
 
     /**
@@ -1211,7 +1186,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Perform a model update operation.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return bool
      */
     protected function performUpdate(Builder $query)
@@ -1233,7 +1208,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
         // Once we have run the update operation, we will fire the "updated" event for
         // this model instance. This will allow developers to hook into these after
         // models are updated, giving them a chance to do any special processing.
-        $dirty = $this->getDirtyForUpdate();
+        $dirty = $this->getDirty();
 
         if (count($dirty) > 0) {
             $this->setKeysForSaveQuery($query)->update($dirty);
@@ -1249,8 +1224,8 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Set the keys for a select query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     protected function setKeysForSelectQuery($query)
     {
@@ -1272,8 +1247,8 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Set the keys for a save update query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     protected function setKeysForSaveQuery($query)
     {
@@ -1295,15 +1270,11 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Perform a model insert operation.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return bool
      */
     protected function performInsert(Builder $query)
     {
-        if ($this->usesUniqueIds()) {
-            $this->setUniqueIds();
-        }
-
         if ($this->fireModelEvent('creating') === false) {
             return false;
         }
@@ -1350,7 +1321,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Insert the given attributes and set the ID on the model.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @param  array  $attributes
      * @return void
      */
@@ -1479,19 +1450,6 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     }
 
     /**
-     * Force a hard destroy on a soft deleted model.
-     *
-     * This method protects developers from running forceDestroy when the trait is missing.
-     *
-     * @param  \Illuminate\Support\Collection|array|int|string  $ids
-     * @return bool|null
-     */
-    public static function forceDestroy($ids)
-    {
-        return static::destroy($ids);
-    }
-
-    /**
      * Perform the actual delete query on this model instance.
      *
      * @return void
@@ -1506,7 +1464,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Begin querying the model.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public static function query()
     {
@@ -1516,7 +1474,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Get a new query builder for the model's table.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function newQuery()
     {
@@ -1526,7 +1484,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Get a new query builder that doesn't have any global scopes or eager loading.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder|static
      */
     public function newModelQuery()
     {
@@ -1538,7 +1496,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Get a new query builder with no relationships loaded.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function newQueryWithoutRelationships()
     {
@@ -1548,8 +1506,8 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Register the global scopes for this builder instance.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $builder
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function registerGlobalScopes($builder)
     {
@@ -1563,7 +1521,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Get a new query builder that doesn't have any global scopes.
      *
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder|static
      */
     public function newQueryWithoutScopes()
     {
@@ -1576,7 +1534,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * Get a new query instance without a given scope.
      *
      * @param  \Illuminate\Database\Eloquent\Scope|string  $scope
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function newQueryWithoutScope($scope)
     {
@@ -1587,7 +1545,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * Get a new query to restore one or more models by their queueable IDs.
      *
      * @param  array|int  $ids
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function newQueryForRestoration($ids)
     {
@@ -1598,11 +1556,11 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * Create a new Eloquent query builder for the model.
      *
      * @param  \Illuminate\Database\Query\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder<*>
+     * @return \Illuminate\Database\Eloquent\Builder|static
      */
     public function newEloquentBuilder($query)
     {
-        return new static::$builder($query);
+        return new Builder($query);
     }
 
     /**
@@ -1613,6 +1571,17 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     protected function newBaseQueryBuilder()
     {
         return $this->getConnection()->query();
+    }
+
+    /**
+     * Create a new Eloquent Collection instance.
+     *
+     * @param  array  $models
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function newCollection(array $models = [])
+    {
+        return new Collection($models);
     }
 
     /**
@@ -1661,10 +1630,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function toArray()
     {
-        return $this->withoutRecursion(
-            fn () => array_merge($this->attributesToArray(), $this->relationsToArray()),
-            fn () => $this->attributesToArray(),
-        );
+        return array_merge($this->attributesToArray(), $this->relationsToArray());
     }
 
     /**
@@ -1677,10 +1643,10 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function toJson($options = 0)
     {
-        try {
-            $json = json_encode($this->jsonSerialize(), $options | JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            throw JsonEncodingException::forModel($this, $e->getMessage());
+        $json = json_encode($this->jsonSerialize(), $options);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw JsonEncodingException::forModel($this, json_last_error_msg());
         }
 
         return $json;
@@ -1732,10 +1698,10 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
                 ->attributes
         );
 
-        $this->load((new BaseCollection($this->relations))->reject(
-            fn ($relation) => $relation instanceof Pivot
-                || (is_object($relation) && in_array(AsPivot::class, class_uses_recursive($relation), true))
-        )->keys()->all());
+        $this->load(collect($this->relations)->reject(function ($relation) {
+            return $relation instanceof Pivot
+                || (is_object($relation) && in_array(AsPivot::class, class_uses_recursive($relation), true));
+        })->keys()->all());
 
         $this->syncOriginal();
 
@@ -1748,14 +1714,12 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * @param  array|null  $except
      * @return static
      */
-    public function replicate(?array $except = null)
+    public function replicate(array $except = null)
     {
         $defaults = array_values(array_filter([
             $this->getKeyName(),
             $this->getCreatedAtColumn(),
             $this->getUpdatedAtColumn(),
-            ...$this->uniqueIds(),
-            'laravel_through_key',
         ]));
 
         $attributes = Arr::except(
@@ -1777,7 +1741,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * @param  array|null  $except
      * @return static
      */
-    public function replicateQuietly(?array $except = null)
+    public function replicateQuietly(array $except = null)
     {
         return static::withoutEvents(fn () => $this->replicate($except));
     }
@@ -1854,7 +1818,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Get the connection resolver instance.
      *
-     * @return \Illuminate\Database\ConnectionResolverInterface|null
+     * @return \Illuminate\Database\ConnectionResolverInterface
      */
     public static function getConnectionResolver()
     {
@@ -2011,31 +1975,29 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function getQueueableRelations()
     {
-        return $this->withoutRecursion(function () {
-            $relations = [];
+        $relations = [];
 
-            foreach ($this->getRelations() as $key => $relation) {
-                if (! method_exists($this, $key)) {
-                    continue;
-                }
+        foreach ($this->getRelations() as $key => $relation) {
+            if (! method_exists($this, $key)) {
+                continue;
+            }
 
-                $relations[] = $key;
+            $relations[] = $key;
 
-                if ($relation instanceof QueueableCollection) {
-                    foreach ($relation->getQueueableRelations() as $collectionValue) {
-                        $relations[] = $key.'.'.$collectionValue;
-                    }
-                }
-
-                if ($relation instanceof QueueableEntity) {
-                    foreach ($relation->getQueueableRelations() as $entityValue) {
-                        $relations[] = $key.'.'.$entityValue;
-                    }
+            if ($relation instanceof QueueableCollection) {
+                foreach ($relation->getQueueableRelations() as $collectionValue) {
+                    $relations[] = $key.'.'.$collectionValue;
                 }
             }
 
-            return array_unique($relations);
-        }, []);
+            if ($relation instanceof QueueableEntity) {
+                foreach ($relation->getQueueableRelations() as $entityValue) {
+                    $relations[] = $key.'.'.$entityValue;
+                }
+            }
+        }
+
+        return array_unique($relations);
     }
 
     /**
@@ -2124,7 +2086,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      * @param  string  $childType
      * @param  mixed  $value
      * @param  string|null  $field
-     * @return \Illuminate\Database\Eloquent\Relations\Relation<\Illuminate\Database\Eloquent\Model, $this, *>
+     * @return \Illuminate\Database\Eloquent\Relations\Relation
      */
     protected function resolveChildRouteBindingQuery($childType, $value, $field)
     {
@@ -2134,7 +2096,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
 
         if ($relationship instanceof HasManyThrough ||
             $relationship instanceof BelongsToMany) {
-            $field = $relationship->getRelated()->qualifyColumn($field);
+            $field = $relationship->getRelated()->getTable().'.'.$field;
         }
 
         return $relationship instanceof Model
@@ -2156,10 +2118,10 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     /**
      * Retrieve the model for a bound value.
      *
-     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Contracts\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation  $query
+     * @param  \Illuminate\Database\Eloquent\Model|\Illuminate\Database\Eloquent\Relations\Relation  $query
      * @param  mixed  $value
      * @param  string|null  $field
-     * @return \Illuminate\Contracts\Database\Eloquent\Builder
+     * @return \Illuminate\Database\Eloquent\Relations\Relation
      */
     public function resolveRouteBindingQuery($query, $value, $field = null)
     {
@@ -2280,15 +2242,11 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function offsetExists($offset): bool
     {
-        $shouldPrevent = static::$modelsShouldPreventAccessingMissingAttributes;
-
-        static::$modelsShouldPreventAccessingMissingAttributes = false;
-
-        $result = ! is_null($this->getAttribute($offset));
-
-        static::$modelsShouldPreventAccessingMissingAttributes = $shouldPrevent;
-
-        return $result;
+        try {
+            return ! is_null($this->getAttribute($offset));
+        } catch (MissingAttributeException) {
+            return false;
+        }
     }
 
     /**
@@ -2322,7 +2280,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function offsetUnset($offset): void
     {
-        unset($this->attributes[$offset], $this->relations[$offset], $this->attributeCastCache[$offset]);
+        unset($this->attributes[$offset], $this->relations[$offset]);
     }
 
     /**
@@ -2356,7 +2314,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
      */
     public function __call($method, $parameters)
     {
-        if (in_array($method, ['increment', 'decrement', 'incrementQuietly', 'decrementQuietly'])) {
+        if (in_array($method, ['increment', 'decrement'])) {
             return $this->$method(...$parameters);
         }
 
@@ -2365,7 +2323,7 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
         }
 
         if (Str::startsWith($method, 'through') &&
-            method_exists($this, $relationMethod = (new SupportStringable($method))->after('through')->lcfirst()->toString())) {
+            method_exists($this, $relationMethod = Str::of($method)->after('through')->lcfirst()->toString())) {
             return $this->through($relationMethod);
         }
 

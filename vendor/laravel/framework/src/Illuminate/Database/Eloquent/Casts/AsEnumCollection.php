@@ -7,17 +7,15 @@ use Illuminate\Contracts\Database\Eloquent\Castable;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\Collection;
 
-use function Illuminate\Support\enum_value;
-
 class AsEnumCollection implements Castable
 {
     /**
      * Get the caster class to use when casting from / to this cast target.
      *
-     * @template TEnum of \UnitEnum
+     * @template TEnum of \UnitEnum|\BackedEnum
      *
      * @param  array{class-string<TEnum>}  $arguments
-     * @return \Illuminate\Contracts\Database\Eloquent\CastsAttributes<\Illuminate\Support\Collection<array-key, TEnum>, iterable<TEnum>>
+     * @return CastsAttributes<Collection<array-key, TEnum>, iterable<TEnum>>
      */
     public static function castUsing(array $arguments)
     {
@@ -32,11 +30,11 @@ class AsEnumCollection implements Castable
 
             public function get($model, $key, $value, $attributes)
             {
-                if (! isset($attributes[$key])) {
+                if (! isset($attributes[$key]) || is_null($attributes[$key])) {
                     return;
                 }
 
-                $data = Json::decode($attributes[$key]);
+                $data = json_decode($attributes[$key], true);
 
                 if (! is_array($data)) {
                     return;
@@ -54,9 +52,9 @@ class AsEnumCollection implements Castable
             public function set($model, $key, $value, $attributes)
             {
                 $value = $value !== null
-                    ? Json::encode((new Collection($value))->map(function ($enum) {
+                    ? (new Collection($value))->map(function ($enum) {
                         return $this->getStorableEnumValue($enum);
-                    })->jsonSerialize())
+                    })->toJson()
                     : null;
 
                 return [$key => $value];
@@ -75,19 +73,8 @@ class AsEnumCollection implements Castable
                     return $enum;
                 }
 
-                return enum_value($enum);
+                return $enum instanceof BackedEnum ? $enum->value : $enum->name;
             }
         };
-    }
-
-    /**
-     * Specify the Enum for the cast.
-     *
-     * @param  class-string  $class
-     * @return string
-     */
-    public static function of($class)
-    {
-        return static::class.':'.$class;
     }
 }

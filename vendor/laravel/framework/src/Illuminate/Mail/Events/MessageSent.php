@@ -4,7 +4,6 @@ namespace Illuminate\Mail\Events;
 
 use Exception;
 use Illuminate\Mail\SentMessage;
-use Illuminate\Support\Collection;
 
 /**
  * @property \Symfony\Component\Mime\Email $message
@@ -45,12 +44,16 @@ class MessageSent
      */
     public function __serialize()
     {
-        $hasAttachments = (new Collection($this->message->getAttachments()))->isNotEmpty();
+        $hasAttachments = collect($this->message->getAttachments())->isNotEmpty();
 
-        return [
+        return $hasAttachments ? [
+            'sent' => base64_encode(serialize($this->sent)),
+            'data' => base64_encode(serialize($this->data)),
+            'hasAttachments' => true,
+        ] : [
             'sent' => $this->sent,
-            'data' => $hasAttachments ? base64_encode(serialize($this->data)) : $this->data,
-            'hasAttachments' => $hasAttachments,
+            'data' => $this->data,
+            'hasAttachments' => false,
         ];
     }
 
@@ -62,11 +65,13 @@ class MessageSent
      */
     public function __unserialize(array $data)
     {
-        $this->sent = $data['sent'];
-
-        $this->data = (($data['hasAttachments'] ?? false) === true)
-            ? unserialize(base64_decode($data['data']))
-            : $data['data'];
+        if (isset($data['hasAttachments']) && $data['hasAttachments'] === true) {
+            $this->sent = unserialize(base64_decode($data['sent']));
+            $this->data = unserialize(base64_decode($data['data']));
+        } else {
+            $this->sent = $data['sent'];
+            $this->data = $data['data'];
+        }
     }
 
     /**

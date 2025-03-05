@@ -16,7 +16,8 @@ use Symfony\Component\Mime\MimeTypes;
 
 class Filesystem
 {
-    use Conditionable, Macroable;
+    use Conditionable;
+    use Macroable;
 
     /**
      * Determine if a file or directory exists.
@@ -56,21 +57,6 @@ class Filesystem
         }
 
         throw new FileNotFoundException("File does not exist at path {$path}.");
-    }
-
-    /**
-     * Get the contents of a file as decoded JSON.
-     *
-     * @param  string  $path
-     * @param  int  $flags
-     * @param  bool  $lock
-     * @return array
-     *
-     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
-     */
-    public function json($path, $flags = 0, $lock = false)
-    {
-        return json_decode($this->get($path, $lock), true, 512, $flags);
     }
 
     /**
@@ -168,7 +154,7 @@ class Filesystem
             );
         }
 
-        return new LazyCollection(function () use ($path) {
+        return LazyCollection::make(function () use ($path) {
             $file = new SplFileObject($path);
 
             $file->setFlags(SplFileObject::DROP_NEW_LINE);
@@ -184,7 +170,7 @@ class Filesystem
      *
      * @param  string  $path
      * @param  string  $algorithm
-     * @return string|false
+     * @return string
      */
     public function hash($path, $algorithm = 'md5')
     {
@@ -267,12 +253,11 @@ class Filesystem
      *
      * @param  string  $path
      * @param  string  $data
-     * @param  bool  $lock
      * @return int
      */
-    public function append($path, $data, $lock = false)
+    public function append($path, $data)
     {
-        return file_put_contents($path, $data, FILE_APPEND | ($lock ? LOCK_EX : 0));
+        return file_put_contents($path, $data, FILE_APPEND);
     }
 
     /**
@@ -310,7 +295,7 @@ class Filesystem
                 } else {
                     $success = false;
                 }
-            } catch (ErrorException) {
+            } catch (ErrorException $e) {
                 $success = false;
             }
         }
@@ -347,16 +332,12 @@ class Filesystem
      *
      * @param  string  $target
      * @param  string  $link
-     * @return bool|null
+     * @return void
      */
     public function link($target, $link)
     {
         if (! windows_os()) {
-            if (function_exists('symlink')) {
-                return symlink($target, $link);
-            } else {
-                return exec('ln -s '.escapeshellarg($target).' '.escapeshellarg($link)) !== false;
-            }
+            return symlink($target, $link);
         }
 
         $mode = $this->isDirectory($target) ? 'J' : 'H';
@@ -547,9 +528,9 @@ class Filesystem
      */
     public function hasSameHash($firstFile, $secondFile)
     {
-        $hash = @hash_file('xxh128', $firstFile);
+        $hash = @md5_file($firstFile);
 
-        return $hash && hash_equals($hash, (string) @hash_file('xxh128', $secondFile));
+        return $hash && $hash === @md5_file($secondFile);
     }
 
     /**
@@ -752,8 +733,6 @@ class Filesystem
                 $this->delete($item->getPathname());
             }
         }
-
-        unset($items);
 
         if (! $preserve) {
             @rmdir($directory);

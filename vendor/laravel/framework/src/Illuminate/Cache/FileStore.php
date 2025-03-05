@@ -29,13 +29,6 @@ class FileStore implements Store, LockProvider
     protected $directory;
 
     /**
-     * The file cache lock directory.
-     *
-     * @var string|null
-     */
-    protected $lockDirectory;
-
-    /**
      * Octal representation of the cache file permissions.
      *
      * @var int|null
@@ -60,7 +53,7 @@ class FileStore implements Store, LockProvider
     /**
      * Retrieve an item from the cache by key.
      *
-     * @param  string  $key
+     * @param  string|array  $key
      * @return mixed
      */
     public function get($key)
@@ -109,7 +102,7 @@ class FileStore implements Store, LockProvider
 
         try {
             $file->getExclusiveLock();
-        } catch (LockTimeoutException) {
+        } catch (LockTimeoutException $e) {
             $file->close();
 
             return false;
@@ -217,14 +210,7 @@ class FileStore implements Store, LockProvider
      */
     public function lock($name, $seconds = 0, $owner = null)
     {
-        $this->ensureCacheDirectoryExists($this->lockDirectory ?? $this->directory);
-
-        return new FileLock(
-            new static($this->files, $this->lockDirectory ?? $this->directory, $this->filePermission),
-            $name,
-            $seconds,
-            $owner
-        );
+        return new FileLock($this, $name, $seconds, $owner);
     }
 
     /**
@@ -248,11 +234,7 @@ class FileStore implements Store, LockProvider
     public function forget($key)
     {
         if ($this->files->exists($file = $this->path($key))) {
-            return tap($this->files->delete($file), function ($forgotten) use ($key) {
-                if ($forgotten && $this->files->exists($file = $this->path("illuminate:cache:flexible:created:{$key}"))) {
-                    $this->files->delete($file);
-                }
-            });
+            return $this->files->delete($file);
         }
 
         return false;
@@ -294,12 +276,10 @@ class FileStore implements Store, LockProvider
         // just return null. Otherwise, we'll get the contents of the file and get
         // the expiration UNIX timestamps from the start of the file's contents.
         try {
-            if (is_null($contents = $this->files->get($path, true))) {
-                return $this->emptyPayload();
-            }
-
-            $expire = substr($contents, 0, 10);
-        } catch (Exception) {
+            $expire = substr(
+                $contents = $this->files->get($path, true), 0, 10
+            );
+        } catch (Exception $e) {
             return $this->emptyPayload();
         }
 
@@ -314,7 +294,7 @@ class FileStore implements Store, LockProvider
 
         try {
             $data = unserialize(substr($contents, 10));
-        } catch (Exception) {
+        } catch (Exception $e) {
             $this->forget($key);
 
             return $this->emptyPayload();
@@ -344,7 +324,7 @@ class FileStore implements Store, LockProvider
      * @param  string  $key
      * @return string
      */
-    public function path($key)
+    protected function path($key)
     {
         $parts = array_slice(str_split($hash = sha1($key), 2), 0, 2);
 
@@ -382,32 +362,6 @@ class FileStore implements Store, LockProvider
     public function getDirectory()
     {
         return $this->directory;
-    }
-
-    /**
-     * Set the working directory of the cache.
-     *
-     * @param  string  $directory
-     * @return $this
-     */
-    public function setDirectory($directory)
-    {
-        $this->directory = $directory;
-
-        return $this;
-    }
-
-    /**
-     * Set the cache directory where locks should be stored.
-     *
-     * @param  string|null  $lockDirectory
-     * @return $this
-     */
-    public function setLockDirectory($lockDirectory)
-    {
-        $this->lockDirectory = $lockDirectory;
-
-        return $this;
     }
 
     /**

@@ -24,7 +24,7 @@ class RouterDataCollector extends DataCollector
     /**
      * @var \SplObjectStorage<Request, callable>
      */
-    protected \SplObjectStorage $controllers;
+    protected $controllers;
 
     public function __construct()
     {
@@ -32,9 +32,11 @@ class RouterDataCollector extends DataCollector
     }
 
     /**
+     * {@inheritdoc}
+     *
      * @final
      */
-    public function collect(Request $request, Response $response, ?\Throwable $exception = null): void
+    public function collect(Request $request, Response $response, \Throwable $exception = null)
     {
         if ($response instanceof RedirectResponse) {
             $this->data['redirect'] = true;
@@ -48,7 +50,7 @@ class RouterDataCollector extends DataCollector
         unset($this->controllers[$request]);
     }
 
-    public function reset(): void
+    public function reset()
     {
         $this->controllers = new \SplObjectStorage();
 
@@ -59,7 +61,7 @@ class RouterDataCollector extends DataCollector
         ];
     }
 
-    protected function guessRoute(Request $request, string|object|array $controller): string
+    protected function guessRoute(Request $request, string|object|array $controller)
     {
         return 'n/a';
     }
@@ -67,7 +69,7 @@ class RouterDataCollector extends DataCollector
     /**
      * Remembers the controller associated to each request.
      */
-    public function onKernelController(ControllerEvent $event): void
+    public function onKernelController(ControllerEvent $event)
     {
         $this->controllers[$event->getRequest()] = $event->getController();
     }
@@ -90,6 +92,9 @@ class RouterDataCollector extends DataCollector
         return $this->data['route'];
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getName(): string
     {
         return 'router';

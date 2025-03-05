@@ -58,7 +58,7 @@ class Dispatcher implements QueueingDispatcher
      * @param  \Closure|null  $queueResolver
      * @return void
      */
-    public function __construct(Container $container, ?Closure $queueResolver = null)
+    public function __construct(Container $container, Closure $queueResolver = null)
     {
         $this->container = $container;
         $this->queueResolver = $queueResolver;
@@ -109,7 +109,9 @@ class Dispatcher implements QueueingDispatcher
     {
         $uses = class_uses_recursive($command);
 
-        if (isset($uses[InteractsWithQueue::class], $uses[Queueable::class]) && ! $command->job) {
+        if (in_array(InteractsWithQueue::class, $uses) &&
+            in_array(Queueable::class, $uses) &&
+            ! $command->job) {
             $command->setJob(new SyncJob($this->container, json_encode([]), 'sync', 'sync'));
         }
 
@@ -161,7 +163,6 @@ class Dispatcher implements QueueingDispatcher
     public function chain($jobs)
     {
         $jobs = Collection::wrap($jobs);
-        $jobs = ChainedBatch::prepareNestedBatches($jobs);
 
         return new PendingChain($jobs->shift(), $jobs->toArray());
     }
@@ -215,7 +216,7 @@ class Dispatcher implements QueueingDispatcher
     {
         $connection = $command->connection ?? null;
 
-        $queue = ($this->queueResolver)($connection);
+        $queue = call_user_func($this->queueResolver, $connection);
 
         if (! $queue instanceof Queue) {
             throw new RuntimeException('Queue resolver did not return a Queue implementation.');
@@ -237,11 +238,19 @@ class Dispatcher implements QueueingDispatcher
      */
     protected function pushCommandToQueue($queue, $command)
     {
-        if (isset($command->delay)) {
-            return $queue->later($command->delay, $command, queue: $command->queue ?? null);
+        if (isset($command->queue, $command->delay)) {
+            return $queue->laterOn($command->queue, $command->delay, $command);
         }
 
-        return $queue->push($command, queue: $command->queue ?? null);
+        if (isset($command->queue)) {
+            return $queue->pushOn($command->queue, $command);
+        }
+
+        if (isset($command->delay)) {
+            return $queue->later($command->delay, $command);
+        }
+
+        return $queue->push($command);
     }
 
     /**

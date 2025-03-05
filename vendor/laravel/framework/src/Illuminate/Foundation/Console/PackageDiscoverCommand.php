@@ -4,7 +4,6 @@ namespace Illuminate\Foundation\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Foundation\PackageManifest;
-use Illuminate\Support\Collection;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'package:discover')]
@@ -16,6 +15,17 @@ class PackageDiscoverCommand extends Command
      * @var string
      */
     protected $signature = 'package:discover';
+
+    /**
+     * The name of the console command.
+     *
+     * This name is used to identify the command during lazy loading.
+     *
+     * @var string|null
+     *
+     * @deprecated
+     */
+    protected static $defaultName = 'package:discover';
 
     /**
      * The console command description.
@@ -36,7 +46,7 @@ class PackageDiscoverCommand extends Command
 
         $manifest->build();
 
-        (new Collection($manifest->manifest))
+        collect($manifest->manifest)
             ->keys()
             ->each(fn ($description) => $this->components->task($description))
             ->whenNotEmpty(fn () => $this->newLine());

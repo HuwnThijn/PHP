@@ -83,6 +83,17 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
         // Cập nhật trạng thái user
         Route::post('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('users.update-status');
     });
+
+    // Routes cho quản lý thuốc
+    Route::get('/medicine', [AdminController::class, 'medicineIndex'])->name('admin.medicine.index');
+    Route::post('/medicine', [AdminController::class, 'medicineStore'])->name('admin.medicine.store');
+    Route::put('/medicine/{id}', [AdminController::class, 'medicineUpdate'])->name('admin.medicine.update');
+    Route::delete('/medicine/{id}', [AdminController::class, 'medicineDestroy'])->name('admin.medicine.destroy');
+    
+    Route::get('/treatment', [AdminController::class, 'treatmentIndex'])->name('admin.treatment.index');
+    Route::post('/treatment', [AdminController::class, 'treatmentStore'])->name('admin.treatment.store');
+    Route::put('/treatment/{id}', [AdminController::class, 'treatmentUpdate'])->name('admin.treatment.update');
+    Route::delete('/treatment/{id}', [AdminController::class, 'treatmentDestroy'])->name('admin.treatment.destroy');
 });
 
 // Route tạm thời để reset mật khẩu admin (Xóa route này sau khi đã reset xong)
@@ -94,4 +105,40 @@ Route::get('/reset-admin-password', function() {
         return "Đã reset mật khẩu admin thành: 123456";
     }
     return "Không tìm thấy tài khoản admin";
+});
+
+Route::post('/admin/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('admin.users.updateStatus');
+
+Route::put('/admin/staff/{id}', [AdminController::class, 'updateStaff'])->name('admin.staff.update');
+
+Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    
+    // Quản lý nhân viên
+    Route::get('/staff', [AdminController::class, 'staffIndex'])->name('staff.index');
+    Route::post('/staff/store', [AdminController::class, 'createMedicalStaff'])->name('staff.store');
+    Route::post('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('users.updateStatus');
+    
+    // Quản lý thuốc
+    Route::get('/medicine', [AdminController::class, 'medicineIndex'])->name('medicine.index');
+    Route::post('/medicine', [AdminController::class, 'medicineStore'])->name('medicine.store');
+    Route::put('/medicine/{id}', [AdminController::class, 'updateMedicine'])->name('medicine.update');
+    Route::delete('/medicine/{id}', [AdminController::class, 'deleteMedicine'])->name('medicine.destroy');
+    
+    // Quản lý trị liệu
+    Route::get('/treatment', [AdminController::class, 'treatmentIndex'])->name('treatment.index');
+    Route::post('/treatment', [AdminController::class, 'treatmentStore'])->name('treatment.store');
+    Route::put('/treatment/{id}', [AdminController::class, 'updateTreatment'])->name('treatment.update');
+    Route::delete('/treatment/{id}', [AdminController::class, 'deleteTreatment'])->name('treatment.destroy');
+
+    // Quản lý khách hàng
+    Route::get('/customers', [AdminController::class, 'customerIndex'])->name('customers.index');
+    Route::post('/customers/{userId}/status', [AdminController::class, 'updateCustomerStatus'])->name('customers.updateStatus');
+
+    // Quản lý thành viên
+    Route::get('/member', [AdminController::class, 'memberIndex'])->name('member.index');
+    Route::post('/member', [AdminController::class, 'memberStore'])->name('member.store');
+    Route::put('/member/{id}', [AdminController::class, 'memberUpdate'])->name('member.update');
+    Route::post('/member/{userId}/status', [AdminController::class, 'updateMemberStatus'])->name('member.updateStatus');
 });

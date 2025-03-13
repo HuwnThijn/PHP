@@ -24,4 +24,16 @@ class Treatment extends Model
         'price' => 'decimal:2',
         'duration' => 'integer'
     ];
+
+    // Accessor để format giá
+    public function getPriceFormattedAttribute()
+    {
+        return number_format($this->price, 0, ',', '.') . ' VNĐ';
+    }
+
+    // Accessor để format thời gian
+    public function getDurationFormattedAttribute()
+    {
+        return $this->duration . ' phút';
+    }
 } 

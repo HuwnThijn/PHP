@@ -6,6 +6,7 @@
     <title>@yield('title') - Quản trị hệ thống</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     @yield('styles')
 </head>
 <body>
@@ -38,6 +39,12 @@
                         <li class="nav-item">
                             <a class="nav-link text-white" href="{{ route('admin.revenue') }}">
                                 <i class="fas fa-chart-line"></i> Doanh thu
+                            </a>
+                        </li>
+                        <li class="nav-item {{ request()->routeIs('admin.member.*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('admin.member.index') }}">
+                                <i class="fas fa-users"></i>
+                                <span>Quản lý thành viên</span>
                             </a>
                         </li>
                         <li class="nav-item">

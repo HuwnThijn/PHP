@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Medicine extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -22,6 +23,19 @@ class Medicine extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
-        'expiry_date' => 'date'
+        'expiry_date' => 'date',
+        'stock_quantity' => 'integer'
     ];
+
+    // Accessor để format giá
+    public function getPriceFormattedAttribute()
+    {
+        return number_format($this->price, 0, ',', '.') . ' VNĐ';
+    }
+
+    // Accessor để format ngày hết hạn
+    public function getExpiryDateFormattedAttribute()
+    {
+        return $this->expiry_date->format('d/m/Y');
+    }
 } 

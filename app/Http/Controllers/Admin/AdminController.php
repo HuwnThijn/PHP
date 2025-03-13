@@ -115,39 +115,34 @@ class AdminController extends Controller
     // Quản lý user (bác sĩ, dược sĩ)
     public function createMedicalStaff(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:8',
-            'role' => 'required|in:2,3', // 2: bác sĩ, 3: dược sĩ
-            'phone' => 'required|string',
-            'address' => 'required|string',
-            'specialization' => 'required_if:role,2|string|nullable'
-        ]);
-
         try {
+            // Validate dữ liệu
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|min:6',
+                'phone' => 'required|string',
+                'address' => 'required|string',
+                'role' => 'required|in:2,3',
+            ]);
+
+            // Tạo user mới
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
-                'id_role' => $validated['role'],
                 'phone' => $validated['phone'],
                 'address' => $validated['address'],
-                'specialization' => $validated['specialization'] ?? null,
-                'status' => 'active'
+                'id_role' => $validated['role'],
+                'id_rank' => 1,
+                'status' => 1  // 1 = active, 0 = inactive
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Tạo tài khoản thành công',
-                'user' => $user
-            ]);
+            return redirect()->back()->with('success', 'Thêm nhân viên thành công!');
         } catch (\Exception $e) {
-            Log::error('Lỗi tạo tài khoản: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Có lỗi xảy ra khi tạo tài khoản: ' . $e->getMessage()
-            ], 500);
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
@@ -180,52 +175,157 @@ class AdminController extends Controller
     }
 
     // Quản lý thuốc
-    public function createMedicine(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'stock_quantity' => 'required|integer|min:0',
-            'manufacturer' => 'required|string',
-            'expiry_date' => 'required|date',
-            'dosage_form' => 'required|string',
-            'usage_instructions' => 'required|string'
-        ]);
-
-        $medicine = Medicine::create($validated);
-        return response()->json(['message' => 'Thêm thuốc thành công', 'medicine' => $medicine]);
-    }
-
-    // Quản lý trị liệu
-    public function createTreatment(Request $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'duration' => 'required|integer|min:1',
-            'equipment_needed' => 'required|string',
-            'contraindications' => 'required|string',
-            'side_effects' => 'required|string'
-        ]);
-
-        $treatment = Treatment::create($validated);
-        return response()->json(['message' => 'Thêm phương pháp trị liệu thành công', 'treatment' => $treatment]);
-    }
-
     public function medicineIndex()
     {
-        $medicines = Medicine::orderBy('name')
-            ->paginate(10);
+        $medicines = Medicine::paginate(10);
         return view('admin.medicine.index', compact('medicines'));
     }
 
+    public function medicineStore(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'stock_quantity' => 'required|integer|min:0',
+                'manufacturer' => 'required|string',
+                'expiry_date' => 'required|date',
+                'dosage_form' => 'required|string',
+                'usage_instructions' => 'required|string'
+            ]);
+
+            Medicine::create($validated);
+
+            return redirect()->back()->with('success', 'Thêm thuốc mới thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function updateMedicine(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'stock_quantity' => 'required|integer|min:0',
+                'manufacturer' => 'required|string',
+                'expiry_date' => 'required|date',
+                'dosage_form' => 'required|string',
+                'usage_instructions' => 'required|string'
+            ]);
+
+            $medicine = Medicine::findOrFail($id);
+            $medicine->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật thông tin thuốc thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteMedicine($id)
+    {
+        try {
+            $medicine = Medicine::findOrFail($id);
+            $medicine->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Xóa thuốc thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Quản lý trị liệu
     public function treatmentIndex()
     {
-        $treatments = Treatment::orderBy('name')
-            ->paginate(10);
+        $treatments = Treatment::paginate(10);
         return view('admin.treatment.index', compact('treatments'));
+    }
+
+    public function treatmentStore(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'duration' => 'required|integer|min:1',
+                'equipment_needed' => 'required|string',
+                'contraindications' => 'required|string',
+                'side_effects' => 'required|string'
+            ]);
+
+            Treatment::create($validated);
+
+            return redirect()->back()->with('success', 'Thêm trị liệu mới thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function updateTreatment(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required|numeric|min:0',
+                'duration' => 'required|integer|min:1',
+                'equipment_needed' => 'required|string',
+                'contraindications' => 'required|string',
+                'side_effects' => 'required|string'
+            ]);
+
+            $treatment = Treatment::findOrFail($id);
+            $treatment->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật thông tin trị liệu thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteTreatment($id)
+    {
+        try {
+            $treatment = Treatment::findOrFail($id);
+            $treatment->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Xóa trị liệu thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function revenueIndex()
@@ -372,22 +472,177 @@ class AdminController extends Controller
     {
         try {
             $validated = $request->validate([
-                'status' => 'required|in:active,temporary_locked,permanent_locked'
+                'status' => 'required|in:0,1'
             ]);
 
             $user = User::findOrFail($userId);
             $user->status = $validated['status'];
             $user->save();
 
-            $messages = [
-                'active' => 'Đã kích hoạt tài khoản',
-                'temporary_locked' => 'Đã tạm khóa tài khoản (30 ngày)',
-                'permanent_locked' => 'Đã khóa vĩnh viễn tài khoản'
-            ];
+            $statusText = $validated['status'] == 1 ? 'kích hoạt' : 'vô hiệu hóa';
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Đã $statusText tài khoản thành công!"
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateStaff(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email,' . $id . ',id_user',
+                'phone' => 'required|string',
+                'address' => 'required|string',
+                'role' => 'required|in:2,3',
+            ]);
+
+            $user = User::findOrFail($id);
+            $user->update([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'],
+                'address' => $validated['address'],
+                'id_role' => $validated['role'],
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => $messages[$validated['status']]
+                'message' => 'Cập nhật thông tin nhân viên thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Quản lý khách hàng
+    public function customerIndex()
+    {
+        $customers = User::where('id_role', 4)->paginate(10); // Role 4 là member
+        $counts = [
+            'member' => User::where('id_role', 4)->count(),
+            'active' => User::where('id_role', 4)->where('status', 1)->count(),
+            'inactive' => User::where('id_role', 4)->where('status', 0)->count(),
+        ];
+        
+        return view('admin.customers.index', compact('customers', 'counts'));
+    }
+
+    public function updateCustomerStatus(Request $request, $userId)
+    {
+        try {
+            $validated = $request->validate([
+                'status' => 'required|in:0,1'
+            ]);
+
+            $user = User::where('id_role', 4)->findOrFail($userId);
+            $user->status = $validated['status'];
+            $user->save();
+
+            $statusText = $validated['status'] == 1 ? 'kích hoạt' : 'vô hiệu hóa';
+            return response()->json([
+                'success' => true,
+                'message' => "Đã $statusText tài khoản khách hàng thành công!"
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Quản lý thành viên
+    public function memberIndex()
+    {
+        $members = User::where('id_role', 4)->paginate(10); // Role 4 là member
+        $counts = [
+            'member' => User::where('id_role', 4)->count(),
+        ];
+        
+        return view('admin.member.index', compact('members', 'counts'));
+    }
+
+    public function memberStore(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|min:6',
+                'phone' => 'required|string',
+                'address' => 'required|string',
+            ]);
+
+            User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'phone' => $validated['phone'],
+                'address' => $validated['address'],
+                'id_role' => 4, // Role member
+                'id_rank' => 1,
+                'status' => 1
+            ]);
+
+            return redirect()->back()->with('success', 'Thêm thành viên thành công!');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    public function memberUpdate(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email,' . $id . ',id_user',
+                'phone' => 'required|string',
+                'address' => 'required|string',
+            ]);
+
+            $user = User::where('id_role', 4)->findOrFail($id);
+            $user->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật thông tin thành viên thành công!'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateMemberStatus(Request $request, $userId)
+    {
+        try {
+            $validated = $request->validate([
+                'status' => 'required|in:0,1'
+            ]);
+
+            $user = User::where('id_role', 4)->findOrFail($userId);
+            $user->status = $validated['status'];
+            $user->save();
+
+            $statusText = $validated['status'] == 1 ? 'kích hoạt' : 'vô hiệu hóa';
+            return response()->json([
+                'success' => true,
+                'message' => "Đã $statusText tài khoản thành viên thành công!"
             ]);
         } catch (\Exception $e) {
             return response()->json([

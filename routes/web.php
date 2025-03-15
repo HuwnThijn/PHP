@@ -6,6 +6,8 @@ use App\Http\Controllers\User\HomeController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Pharmacist\PharmacistController;
+use App\Http\Controllers\Auth\PharmacistLoginController;
 
 /*
 |--------------------------------------------------------------------------
@@ -141,4 +143,57 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::post('/member', [AdminController::class, 'memberStore'])->name('member.store');
     Route::put('/member/{id}', [AdminController::class, 'memberUpdate'])->name('member.update');
     Route::post('/member/{userId}/status', [AdminController::class, 'updateMemberStatus'])->name('member.updateStatus');
+});
+
+// Routes đăng nhập cho dược sĩ
+Route::group(['prefix' => 'pharmacist'], function () {
+    Route::get('/login', [PharmacistLoginController::class, 'showLoginForm'])->name('pharmacist.login');
+    Route::post('/login', [PharmacistLoginController::class, 'login'])->name('pharmacist.login.submit');
+    Route::post('/logout', [PharmacistLoginController::class, 'logout'])->name('pharmacist.logout');
+});
+
+// Routes cho dược sĩ sau khi đăng nhập
+Route::prefix('pharmacist')->name('pharmacist.')->group(function () {
+    // Route đăng nhập
+    Route::get('/login', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'login'])->name('login.submit');
+    Route::post('/logout', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'logout'])->name('logout');
+    
+    // Route cho người dùng đã đăng nhập
+    Route::middleware(['auth', 'pharmacist'])->group(function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'index'])->name('dashboard');
+        
+        // Quản lý đơn thuốc
+        Route::prefix('prescriptions')->name('prescriptions.')->group(function () {
+            Route::get('/pending', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'pendingPrescriptions'])->name('pending');
+            Route::get('/history', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'prescriptionHistory'])->name('history');
+            Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showPrescription'])->name('show');
+            Route::post('/{id}/process', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'processPrescription'])->name('process');
+        });
+        
+        // Quản lý kho
+        Route::prefix('inventory')->name('inventory.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'inventoryIndex'])->name('index');
+            Route::get('/import', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'importForm'])->name('import');
+            Route::post('/import', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'processImport'])->name('import.process');
+            Route::get('/export', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'exportInventory'])->name('export');
+        });
+        
+        // Quản lý đơn hàng
+        Route::prefix('orders')->name('orders.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'ordersIndex'])->name('index');
+            Route::get('/create', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'createOrder'])->name('create');
+            Route::post('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'storeOrder'])->name('store');
+            Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showOrder'])->name('show');
+        });
+        
+        // Quản lý đổi trả
+        Route::prefix('returns')->name('returns.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'returnsIndex'])->name('index');
+            Route::get('/create/{orderId}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'createReturn'])->name('create');
+            Route::post('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'storeReturn'])->name('store');
+            Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showReturn'])->name('show');
+        });
+    });
 });

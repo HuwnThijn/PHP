@@ -10,10 +10,39 @@ class Prescription extends Model
     use HasFactory;
     
     protected $primaryKey = 'id_prescription';
-    protected $fillable = ['id_medical_record', 'medicine', 'dosage', 'frequency', 'duration', 'prescribed_at'];
+    protected $fillable = [
+        'patient_id',
+        'doctor_id',
+        'diagnosis',
+        'notes',
+        'total_amount',
+        'status',
+        'processed_by',
+        'processed_at'
+    ];
     
-    public function medicalRecord()
+    protected $casts = [
+        'processed_at' => 'datetime',
+        'total_amount' => 'decimal:2'
+    ];
+    
+    public function patient()
     {
-        return $this->belongsTo(MedicalRecord::class, 'id_medical_record');
+        return $this->belongsTo(User::class, 'patient_id', 'id_user');
+    }
+
+    public function doctor()
+    {
+        return $this->belongsTo(User::class, 'doctor_id', 'id_user');
+    }
+
+    public function processedBy()
+    {
+        return $this->belongsTo(User::class, 'processed_by', 'id_user');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(PrescriptionItem::class);
     }
 }

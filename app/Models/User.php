@@ -3,20 +3,63 @@
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable
 {
-    use HasFactory;
+    use HasFactory, Notifiable;
     
     protected $primaryKey = 'id_user';
+    
     protected $fillable = [
-        'id_role', 'id_rank', 'name', 'email', 'phone', 'password',
-        'age', 'gender', 'address', 'points', 'total_spent',
-        'last_transaction', 'status', 'failed_appointments'
+        'id_role',
+        'id_rank',
+        'name',
+        'email',
+        'password',
+        'phone',
+        'address',
+        'specialization',
+        'status',
+        'email_verification_token',
+        'avatar'
     ];
     
-    protected $hidden = ['password'];
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+    
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'status' => 'string'
+    ];
+
+    // Các hằng số cho trạng thái
+    const STATUS_ACTIVE = 'active';
+    const STATUS_TEMPORARY_LOCKED = 'temporary_locked';
+    const STATUS_PERMANENT_LOCKED = 'permanent_locked';
+    
+    public function isAdmin()
+    {
+        return $this->id_role === 1;
+    }
+
+    public function isActive()
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isTemporaryLocked()
+    {
+        return $this->status === self::STATUS_TEMPORARY_LOCKED;
+    }
+
+    public function isPermanentLocked()
+    {
+        return $this->status === self::STATUS_PERMANENT_LOCKED;
+    }
     
     public function role()
     {

@@ -4,14 +4,14 @@
     <!-- Basic Page Needs
   ================================================== -->
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Responsive Bootstrap 4 Medical Template">
+
     <title>O2Skin - Web y tế số 1 VN</title>
 
     <!-- Mobile Specific Metas
   ================================================== -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="Health Care Medical Html5 Template">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="author" content="Themefisher">
     <meta name="generator" content="Themefisher Novena HTML Template v1.0">
 
     <!-- theme meta -->
@@ -32,4 +32,10 @@
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="{{ asset('user/theme/css/style.css') }}">
 
+    <!-- Custom CSS for RTL support for Arabic language -->
+    @if(app()->getLocale() == 'ar')
+    <link rel="stylesheet" href="{{ asset('user/theme/css/rtl.css') }}">
+    @endif
+
+    @yield('styles')
 </head>

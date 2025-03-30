@@ -1,12 +1,5 @@
 <!DOCTYPE html>
 
-<!--
- // WEBSITE: https://themefisher.com
- // TWITTER: https://twitter.com/themefisher
- // FACEBOOK: https://www.facebook.com/themefisher
- // GITHUB: https://github.com/themefisher/
--->
-
 <html lang="en">
 
 @include('user.partials.head')
@@ -23,18 +16,11 @@
                     <div class="block text-center">
                         <span class="text-white">Contact Us</span>
                         <h1 class="text-capitalize mb-5 text-lg">Get in Touch</h1>
-
-                        <!-- <ul class="list-inline breadcumb-nav">
-            <li class="list-inline-item"><a href="index.html" class="text-white">Home</a></li>
-            <li class="list-inline-item"><span class="text-white">/</span></li>
-            <li class="list-inline-item"><a href="#" class="text-white-50">Contact Us</a></li>
-          </ul> -->
                     </div>
                 </div>
             </div>
         </div>
     </section>
-    <!-- contact form start -->
 
     <section class="section contact-info pb-0">
         <div class="container">
@@ -50,14 +36,14 @@
                     <div class="contact-block mb-4 mb-lg-0">
                         <i class="icofont-support-faq"></i>
                         <h5>Email Us</h5>
-                        contact@mail.com
+                        o2skin@gmail.com
                     </div>
                 </div>
                 <div class="col-lg-4 col-md-12">
                     <div class="contact-block mb-4 mb-lg-0">
                         <i class="icofont-location-pin"></i>
                         <h5>Location</h5>
-                        North Main Street,Brooklyn Australia
+                        Số 16, Tp. Thủ Đức - Tp. Hồ Chí Minh
                     </div>
                 </div>
             </div>
@@ -71,15 +57,13 @@
                     <div class="section-title text-center">
                         <h2 class="text-md mb-2">Contact us</h2>
                         <div class="divider mx-auto my-4"></div>
-                        <p class="mb-5">Laboriosam exercitationem molestias beatae eos pariatur, similique, excepturi
-                            mollitia sit
-                            perferendis maiores ratione aliquam?</p>
+                        <p class="mb-5">Welcome to our website 📞 You can contact us anytime 😎</p>
                     </div>
                 </div>
             </div>
             <div class="row">
                 <div class="col-lg-12 col-md-12 col-sm-12">
-                    <form id="contact-form" class="contact__form " method="post" action="mail.php">
+                    <form id="contact-form" class="contact__form" method="post" action="mail.php">
                         <!-- form message -->
                         <div class="row">
                             <div class="col-12">
@@ -121,9 +105,9 @@
                             <textarea name="message" id="message" class="form-control" rows="8" placeholder="Your Message" required></textarea>
                         </div>
 
-                        <div>
+                        <div class="text-center">
                             <input class="btn btn-main btn-round-full" name="submit" type="submit"
-                                value="Send Messege"></input>
+                                value="Send Message">
                         </div>
                     </form>
                 </div>
@@ -131,14 +115,34 @@
         </div>
     </section>
 
-
-    <div class="google-map ">
-        <div id="map" data-latitude="40.712776" data-longitude="-74.005974" data-marker="images/marker.png">
+    <!-- Map Section -->
+    <section class="map-section">
+        <div class="container-fluid p-0">
+            <div class="row">
+                <div class="col-lg-12 px-0">
+                    <div id="map-container">
+                        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.472979439986!2d-73.97769068459431!3d40.7516207793276!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c2590247c56379%3A0x15e13bea38b43e18!2sChrysler%20Building!5e0!3m2!1sen!2sus!4v1586810387289!5m2!1sen!2sus" 
+                            width="100%" 
+                            height="450" 
+                            style="border:0;" 
+                            allowfullscreen="" 
+                            loading="lazy">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
 
     <!-- footer Start -->
     @include('user.partials.footer')
 
+    <!-- Essential Scripts -->
+    <script src="{{ asset('user/theme/plugins/jquery/jquery.js') }}"></script>
+    <script src="{{ asset('user/theme/plugins/bootstrap/bootstrap.min.js') }}"></script>
+    <script src="{{ asset('user/theme/plugins/slick-carousel/slick/slick.min.js') }}"></script>
+    <script src="{{ asset('user/theme/plugins/shuffle/shuffle.min.js') }}"></script>
+    <script src="{{ asset('user/theme/js/script.js') }}"></script>
+
 </body>
-</html>
+</html> 

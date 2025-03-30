@@ -140,7 +140,7 @@
         </div>
     </section>
 
-    <section class="section team">
+    {{-- <section class="section team">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-6">
@@ -160,7 +160,7 @@
                             class="img-fluid w-100">
 
                         <div class="content">
-                            <h4 class="mt-4 mb-0"><a href="doctor-single.blade.php">John Marshal</a></h4>
+                            <h4 class="mt-4 mb-0"><a href="{{ route('doctor-single') }}">John Marshal</a></h4>
                             <p>Internist, Emergency Physician</p>
                         </div>
                     </div>
@@ -172,7 +172,7 @@
                             class="img-fluid w-100">
 
                         <div class="content">
-                            <h4 class="mt-4 mb-0"><a href="doctor-single.blade.php">Marshal Root</a></h4>
+                            <h4 class="mt-4 mb-0"><a href="{{ route('doctor-single') }}">Marshal Root</a></h4>
                             <p>Surgeon, Сardiologist</p>
                         </div>
                     </div>
@@ -184,7 +184,7 @@
                             class="img-fluid w-100">
 
                         <div class="content">
-                            <h4 class="mt-4 mb-0"><a href="doctor-single.blade.php">Siamon john</a></h4>
+                            <h4 class="mt-4 mb-0"><a href="{{ route('doctor-single') }}">Siamon john</a></h4>
                             <p>Internist, General Practitioner</p>
                         </div>
                     </div>
@@ -195,14 +195,14 @@
                             class="img-fluid w-100">
 
                         <div class="content">
-                            <h4 class="mt-4 mb-0"><a href="doctor-single.blade.php">Rishat Ahmed</a></h4>
+                            <h4 class="mt-4 mb-0"><a href="{{ route('doctor-single') }}">Rishat Ahmed</a></h4>
                             <p>Orthopedic Surgeon</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </section> --}}
 
     <section class="section testimonial">
         <div class="container">

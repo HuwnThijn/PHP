@@ -2,7 +2,7 @@
 
 @section('title', 'Chi tiết đơn thuốc')
 
-@section('page-title', 'Chi tiết đơn thuốc #' . $prescription->id)
+@section('page-title', 'Chi tiết đơn thuốc #' . $prescription->id_prescription)
 
 @section('content')
 <div class="row">
@@ -62,7 +62,7 @@
                         <thead>
                             <tr>
                                 <th>Tên thuốc</th>
-                                <th>Liều lượng</th>
+                                <th>Liều dùng</th>
                                 <th>Số lượng</th>
                                 <th>Đơn giá</th>
                                 <th>Thành tiền</th>
@@ -70,6 +70,7 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php $total = 0; @endphp
                             @foreach($prescription->items as $item)
                             <tr>
                                 <td>{{ $item->medicine->name }}</td>
@@ -77,6 +78,7 @@
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ number_format($item->price) }} VNĐ</td>
                                 <td>{{ number_format($item->price * $item->quantity) }} VNĐ</td>
+                                @php $total += $item->price * $item->quantity; @endphp
                                 <td>
                                     @if($item->medicine->stock_quantity >= $item->quantity)
                                         <span class="badge badge-success">{{ $item->medicine->stock_quantity }}</span>
@@ -90,7 +92,7 @@
                         <tfoot>
                             <tr>
                                 <td colspan="4" class="text-right font-weight-bold">Tổng cộng:</td>
-                                <td colspan="2" class="font-weight-bold">{{ number_format($prescription->total_amount) }} VNĐ</td>
+                                <td colspan="2" class="font-weight-bold">{{ number_format($total) }} VNĐ</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -119,7 +121,7 @@
                 <h6 class="m-0 font-weight-bold text-primary">Xử lý đơn thuốc</h6>
             </div>
             <div class="card-body">
-                <form action="{{ route('pharmacist.prescriptions.process', $prescription->id) }}" method="POST">
+                <form action="{{ route('pharmacist.prescriptions.process', $prescription->id_prescription) }}" method="POST">
                     @csrf
                     <div class="form-group">
                         <label for="payment_method">Phương thức thanh toán</label>
@@ -143,18 +145,20 @@
                 <h6 class="m-0 font-weight-bold text-primary">Thông tin đơn thuốc</h6>
             </div>
             <div class="card-body">
-                <p><strong>Mã đơn thuốc:</strong> #{{ $prescription->id }}</p>
-                <p><strong>Ngày tạo:</strong> {{ $prescription->created_at->format('d/m/Y H:i') }}</p>
-                <p><strong>Trạng thái:</strong> 
-                    @if($prescription->status == 'pending')
-                        <span class="badge badge-warning">Chờ xử lý</span>
-                    @elseif($prescription->status == 'completed')
-                        <span class="badge badge-success">Đã xử lý</span>
-                    @else
-                        <span class="badge badge-secondary">{{ $prescription->status }}</span>
-                    @endif
-                </p>
-                <p><strong>Tổng tiền:</strong> {{ number_format($prescription->total_amount) }} VNĐ</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Mã đơn thuốc:</strong> #{{ $prescription->id_prescription }}</p>
+                        <p><strong>Ngày tạo:</strong> {{ $prescription->created_at->format('d/m/Y H:i') }}</p>
+                        <p><strong>Trạng thái:</strong> 
+                            @if($prescription->status == 'pending')
+                                <span class="badge badge-warning">Chờ xử lý</span>
+                            @elseif($prescription->status == 'completed')
+                                <span class="badge badge-success">Đã xử lý</span>
+                            @endif
+                        </p>
+                        <p><strong>Tổng tiền:</strong> {{ number_format($total) }} VNĐ</p>
+                    </div>
+                </div>
                 
                 <div class="mt-3">
                     <a href="{{ route('pharmacist.prescriptions.pending') }}" class="btn btn-secondary btn-sm">

@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
+use App\Models\Appointment;
+use App\Models\MedicalRecord;
+use App\Models\PrescriptionItem;
 
 class PharmacistController extends Controller
 {
@@ -30,22 +33,14 @@ class PharmacistController extends Controller
         // Lấy tất cả đơn thuốc thay vì lọc theo trạng thái
         $pendingPrescriptions = Prescription::count();
         $lowStockItems = Medicine::where('stock_quantity', '<', 10)->count();
-        $todayOrders = Order::whereDate('created_at', Carbon::today())->count();
-        $pendingReturns = 0; // Tạm thời đặt giá trị là 0
         
         $recentPrescriptions = Prescription::with('patient', 'doctor')
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();
             
-        $recentOrders = Order::with('user')
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
-            
         return view('pharmacist.dashboard', compact(
-            'pendingPrescriptions', 'lowStockItems', 'todayOrders', 'pendingReturns',
-            'recentPrescriptions', 'recentOrders'
+            'pendingPrescriptions', 'lowStockItems', 'recentPrescriptions'
         ));
     }
     
@@ -60,6 +55,180 @@ class PharmacistController extends Controller
         return view('pharmacist.prescriptions.pending', compact('prescriptions'));
     }
     
+    // Tiếp nhận bệnh nhân và tạo đơn thuốc
+    public function receivePatient()
+    {
+        // Lấy danh sách các cuộc hẹn đã lên lịch trong ngày
+        $todayAppointments = Appointment::with(['patient', 'doctor', 'service'])
+            ->where('status', 'scheduled')
+            ->whereDate('appointment_time', Carbon::today())
+            ->orderBy('appointment_time')
+            ->get();
+        
+        // Lấy danh sách bác sĩ
+        $doctors = User::where('id_role', 2)->get();
+        
+        return view('pharmacist.receive-patient', compact('todayAppointments', 'doctors'));
+    }
+    
+    // Xử lý việc nhận bệnh nhân từ lịch hẹn
+    public function processPatient(Request $request)
+    {
+        $validated = $request->validate([
+            'appointment_id' => 'nullable|exists:appointments,id_appointment',
+            'patient_id' => 'required|exists:users,id_user',
+            'doctor_id' => 'required|exists:users,id_user',
+            'notes' => 'nullable|string'
+        ]);
+        
+        DB::beginTransaction();
+        
+        try {
+            // Nếu có ID lịch hẹn, cập nhật trạng thái lịch hẹn
+            if (!empty($validated['appointment_id'])) {
+                $appointment = Appointment::findOrFail($validated['appointment_id']);
+                $appointment->status = 'completed';
+                $appointment->save();
+            }
+            
+            // Tạo hồ sơ bệnh án mới
+            $medicalRecord = MedicalRecord::create([
+                'id_patient' => $validated['patient_id'],
+                'id_doctor' => $validated['doctor_id'],
+                'notes' => $validated['notes'] ?? null,
+                'diagnosis' => null, // Sẽ được cập nhật bởi bác sĩ
+            ]);
+            
+            DB::commit();
+            
+            // Thông báo cho bác sĩ về bệnh nhân mới (có thể thông qua notification hoặc realtime)
+            // ...
+            
+            return redirect()->route('pharmacist.dashboard')
+                ->with('success', 'Đã gửi thông tin bệnh nhân tới bác sĩ thành công!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+    
+    // Nhận đơn thuốc từ bác sĩ
+    public function receivePrescription($medicalRecordId)
+    {
+        $medicalRecord = MedicalRecord::with(['patient', 'doctor', 'prescriptions'])
+            ->findOrFail($medicalRecordId);
+        
+        $medicines = Medicine::where('stock_quantity', '>', 0)
+            ->orderBy('name')
+            ->get();
+        
+        return view('pharmacist.process-prescription', compact('medicalRecord', 'medicines'));
+    }
+    
+    // Hoàn thành quá trình xử lý đơn thuốc và thanh toán
+    public function completePrescription(Request $request, $medicalRecordId)
+    {
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'items.*.medicine_id' => 'required|exists:medicines,id',
+            'items.*.quantity' => 'required|integer|min:1',
+            'payment_method' => 'required|in:cash,credit_card,bank_transfer'
+        ]);
+        
+        DB::beginTransaction();
+        
+        try {
+            $medicalRecord = MedicalRecord::with('patient')
+                ->findOrFail($medicalRecordId);
+            
+            // Tạo đơn thuốc
+            $prescription = Prescription::create([
+                'id_patient' => $medicalRecord->id_patient,
+                'id_doctor' => $medicalRecord->id_doctor,
+                'diagnosis' => $medicalRecord->diagnosis,
+                'notes' => $request->notes,
+                'status' => 'completed',
+                'processed_by' => Auth::id(),
+                'processed_at' => now()
+            ]);
+            
+            $totalAmount = 0;
+            
+            // Thêm thuốc vào đơn thuốc
+            foreach ($validated['items'] as $item) {
+                $medicine = Medicine::findOrFail($item['medicine_id']);
+                
+                // Kiểm tra tồn kho
+                if ($medicine->stock_quantity < $item['quantity']) {
+                    throw new \Exception("Thuốc {$medicine->name} không đủ số lượng trong kho!");
+                }
+                
+                // Tính giá
+                $price = $medicine->price;
+                $amount = $price * $item['quantity'];
+                $totalAmount += $amount;
+                
+                // Thêm chi tiết đơn thuốc
+                PrescriptionItem::create([
+                    'prescription_id' => $prescription->id_prescription,
+                    'medicine_id' => $medicine->id,
+                    'quantity' => $item['quantity'],
+                    'dosage' => $request->input("dosage.{$medicine->id}", ''),
+                    'instructions' => $request->input("instructions.{$medicine->id}", ''),
+                    'price' => $price
+                ]);
+                
+                // Cập nhật tồn kho
+                $medicine->stock_quantity -= $item['quantity'];
+                $medicine->save();
+                
+                // Ghi log
+                InventoryLog::create([
+                    'medicine_id' => $medicine->id,
+                    'quantity' => -$item['quantity'],
+                    'type' => 'out',
+                    'note' => "Xuất cho đơn thuốc #{$prescription->id_prescription}",
+                    'user_id' => Auth::id()
+                ]);
+            }
+            
+            // Cập nhật tổng tiền
+            $prescription->total_amount = $totalAmount;
+            $prescription->save();
+            
+            // Tạo đơn hàng
+            $order = Order::create([
+                'id_user' => $medicalRecord->id_patient,
+                'total_price' => $totalAmount,
+                'payment_method' => $validated['payment_method'],
+                'status' => 'completed'
+            ]);
+            
+            // Thêm chi tiết đơn hàng
+            foreach ($validated['items'] as $item) {
+                $medicine = Medicine::find($item['medicine_id']);
+                OrderItem::create([
+                    'id_order' => $order->id_order,
+                    'id_cosmetic' => $medicine->id,
+                    'quantity' => $item['quantity'],
+                    'price' => $medicine->price
+                ]);
+            }
+            
+            DB::commit();
+            
+            return redirect()->route('pharmacist.prescriptions.pending')
+                ->with('success', 'Đã hoàn tất xử lý đơn thuốc và thanh toán thành công!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+    
     public function prescriptionHistory()
     {
         // Lấy tất cả đơn thuốc thay vì lọc theo trạng thái
@@ -72,7 +241,7 @@ class PharmacistController extends Controller
     
     public function showPrescription($id)
     {
-        $prescription = Prescription::with(['patient', 'doctor', 'items.medicine'])
+        $prescription = Prescription::with(['patient', 'doctor', 'items.medicine', 'processedBy'])
             ->findOrFail($id);
             
         return view('pharmacist.prescriptions.show', compact('prescription'));
@@ -80,22 +249,27 @@ class PharmacistController extends Controller
     
     public function processPrescription(Request $request, $id)
     {
-        $prescription = Prescription::findOrFail($id);
+        $prescription = Prescription::with(['items.medicine'])->findOrFail($id);
         
         // Kiểm tra tồn kho
         foreach ($prescription->items as $item) {
-            $medicine = Medicine::find($item->medicine_id);
-            if ($medicine->stock_quantity < $item->quantity) {
-                return redirect()->back()->with('error', "Thuốc {$medicine->name} không đủ số lượng trong kho!");
+            if ($item->medicine->stock_quantity < $item->quantity) {
+                return redirect()->back()->with('error', "Thuốc {$item->medicine->name} không đủ số lượng trong kho!");
             }
         }
         
         DB::beginTransaction();
         
         try {
-            // Cập nhật tồn kho
+            // Tính tổng tiền
+            $totalAmount = 0;
             foreach ($prescription->items as $item) {
-                $medicine = Medicine::find($item->medicine_id);
+                $totalAmount += $item->price * $item->quantity;
+            }
+            
+            // Cập nhật tồn kho và ghi log
+            foreach ($prescription->items as $item) {
+                $medicine = $item->medicine;
                 $medicine->stock_quantity -= $item->quantity;
                 $medicine->save();
                 
@@ -104,15 +278,15 @@ class PharmacistController extends Controller
                     'medicine_id' => $medicine->id,
                     'quantity' => -$item->quantity,
                     'type' => 'out',
-                    'note' => "Xuất cho đơn thuốc #{$prescription->id}",
+                    'note' => "Xuất cho đơn thuốc #{$prescription->id_prescription}",
                     'user_id' => Auth::id()
                 ]);
             }
             
             // Tạo đơn hàng
             $order = Order::create([
-                'id_user' => $prescription->patient_id,
-                'total_price' => $prescription->total_amount,
+                'id_user' => $prescription->id_patient,
+                'total_price' => $totalAmount,
                 'payment_method' => $request->payment_method,
                 'status' => 'completed'
             ]);
@@ -127,10 +301,11 @@ class PharmacistController extends Controller
                 ]);
             }
             
-            // Cập nhật trạng thái đơn thuốc
-            $prescription->prescription_status = 'completed';
+            // Cập nhật trạng thái và tổng tiền đơn thuốc
+            $prescription->status = 'completed';
             $prescription->processed_by = Auth::id();
             $prescription->processed_at = now();
+            $prescription->total_amount = $totalAmount;
             $prescription->save();
             
             DB::commit();
@@ -419,5 +594,18 @@ class PharmacistController extends Controller
             ->findOrFail($id);
             
         return view('pharmacist.returns.show', compact('return'));
+    }
+
+    public function create()
+    {
+        $today = now()->format('Y-m-d');
+        $doctors = User::where('id_role', 2)
+            ->whereHas('schedules', function($query) use ($today) {
+                $query->where('date', $today)
+                    ->where('is_available', true);
+            })
+            ->get();
+
+        return view('pharmacist.patients.create', compact('doctors'));
     }
 }

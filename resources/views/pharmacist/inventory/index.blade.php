@@ -6,15 +6,7 @@
 
 @section('content')
 <div class="row mb-4">
-    <div class="col-md-6">
-        <a href="{{ route('pharmacist.inventory.import') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Nhập kho
-        </a>
-        <a href="{{ route('pharmacist.inventory.export') }}" class="btn btn-info">
-            <i class="fas fa-file-export"></i> Lịch sử xuất/nhập kho
-        </a>
-    </div>
-    <div class="col-md-6">
+    <div class="col-md-12">
         <form action="{{ route('pharmacist.inventory.index') }}" method="GET" class="form-inline float-right">
             <div class="input-group">
                 <input type="text" class="form-control" name="search" placeholder="Tìm kiếm thuốc..." value="{{ request('search') }}">

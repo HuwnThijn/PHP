@@ -55,7 +55,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2 title-color">Opthomology</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>
@@ -67,7 +67,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2  title-color">Cardiology</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>
@@ -79,7 +79,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2 title-color">Dental Care</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>
@@ -92,7 +92,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2 title-color">Child Care</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>
@@ -104,7 +104,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2 title-color">Pulmology</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>
@@ -116,7 +116,7 @@
                         <div class="content">
                             <h4 class="mt-4 mb-2 title-color">Gynecology</h4>
                             <p class="mb-4">Saepe nulla praesentium eaque omnis perferendis a doloremque.</p>
-                            <a href="department-single.html" class="read-more">Learn More <i
+                            <a href="{{ route('department-single') }}" class="read-more">Learn More <i
                                     class="icofont-simple-right ml-2"></i></a>
                         </div>
                     </div>

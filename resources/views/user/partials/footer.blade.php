@@ -1,4 +1,3 @@
-
 <!-- footer Start -->
 
 <footer class="footer section gray-bg">
@@ -9,8 +8,7 @@
                     <div class="logo mb-4">
                         <img src="{{ asset('user/theme/images/logo.png') }}" alt="" class="img-fluid">
                     </div>
-                    <p>Tempora dolorem voluptatum nam vero assumenda voluptate, facilis ad eos obcaecati tenetur
-                        veritatis eveniet distinctio possimus.</p>
+                    <p>Welcome to our website. Your health is our pleasure. Let's exercise a lot for long-term health. Fighting</p>
 
                     <ul class="list-inline footer-socials mt-4">
                         <li class="list-inline-item">
@@ -33,10 +31,10 @@
 
                     <ul class="list-unstyled footer-menu lh-35">
                         <li><a href="#!">Surgery </a></li>
-                        <li><a href="#!">Wome's Health</a></li>
-                        <li><a href="#!">Radiology</a></li>
-                        <li><a href="#!">Cardioc</a></li>
-                        <li><a href="#!">Medicine</a></li>
+                        <li><a href="#!">Cardiology</a></li>
+                        <li><a href="#!">Dental Care</a></li>
+                        <li><a href="#!">Laboratory</a></li>
+                        <li><a href="#!">Pediatric</a></li>
                     </ul>
                 </div>
             </div>
@@ -49,8 +47,8 @@
                     <ul class="list-unstyled footer-menu lh-35">
                         <li><a href="#!">Terms & Conditions</a></li>
                         <li><a href="#!">Privacy Policy</a></li>
-                        <li><a href="#!">Company Support </a></li>
-                        <li><a href="#!">FAQuestions</a></li>
+                        <li><a href="#!">Company Support</a></li>
+                        <li><a href="#!">FAQs</a></li>
                         <li><a href="#!">Company Licence</a></li>
                     </ul>
                 </div>
@@ -64,9 +62,9 @@
                     <div class="footer-contact-block mb-4">
                         <div class="icon d-flex align-items-center">
                             <i class="icofont-email mr-3"></i>
-                            <span class="h6 mb-0">Support Available for 24/7</span>
+                            <span class="h6 mb-0">Support Available</span>
                         </div>
-                        <h4 class="mt-2"><a href="mailto:support@email.com">Support@email.com</a></h4>
+                        <h4 class="mt-2"><a href="mailto:support@email.com">o2skin@gmail.com</a></h4>
                     </div>
 
                     <div class="footer-contact-block">
@@ -84,15 +82,14 @@
             <div class="row align-items-center justify-content-between">
                 <div class="col-lg-6">
                     <div class="copyright">
-                        Copyright &copy; 2021, Designed &amp; Developed by <a
-                            href="https://themefisher.com/">Themefisher</a>
+                        Copyright &copy; {{ date('Y') }}, Designed &amp; Developed by <a href="https://themefisher.com/" target="_blank">Themefisher</a>
                     </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="subscribe-form text-lg-right mt-5 mt-lg-0">
                         <form action="#" class="subscribe">
-                            <input type="text" class="form-control" placeholder="Your Email address" required>
-                            <button type="submit" class="btn btn-main-2 btn-round-full">Subscribe</button>
+                            <input type="text" class="form-control" placeholder="Your Email Address">
+                            <a href="#" class="btn btn-main-2 btn-round-full">Subscribe</a>
                         </form>
                     </div>
                 </div>
@@ -118,7 +115,7 @@
     <script src="{{ asset('user/theme/plugins/shuffle/shuffle.min.js') }}"></script>
 
     <!-- Google Map -->
-    <script src="{{ asset('https://maps.googleapis.com/maps/api/js?key=AIzaSyAkeLMlsiwzp6b3Gnaxd86lvakimwGA6UA') }}">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkeLMlsiwzp6b3Gnaxd86lvakimwGA6UA">
     </script>
     <script src="{{ asset('user/theme/plugins/google-map/gmap.js') }}"></script>
     <script src="{{ asset('user/theme/js/script.js') }}"></script>

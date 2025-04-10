@@ -1,6 +1,6 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Trang chủ quản trị')
 
 @section('page-title', 'Dashboard')
 

@@ -14,7 +14,7 @@ class CreateReturnItemsTable extends Migration
     public function up()
     {
         Schema::create('return_items', function (Blueprint $table) {
-            $table->id();
+            $table->id('id_return_item');
             $table->unsignedBigInteger('return_id');
             $table->unsignedBigInteger('order_item_id');
             $table->integer('quantity');
@@ -23,7 +23,7 @@ class CreateReturnItemsTable extends Migration
             $table->timestamps();
             
             $table->foreign('return_id')->references('id')->on('return_orders')->onDelete('cascade');
-            $table->foreign('order_item_id')->references('id')->on('order_items')->onDelete('cascade');
+            $table->foreign('order_item_id')->references('id_order_item')->on('order_items')->onDelete('cascade');
         });
     }
 

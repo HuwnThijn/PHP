@@ -16,4 +16,28 @@ class LoginController extends Controller
     {
         $this->middleware('guest')->except('logout');
     }
+    
+    /**
+     * Show the application's login form.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function showLoginForm()
+    {
+        return view('user.theme.login');
+    }
+    
+    /**
+     * Get the post login redirect path.
+     *
+     * @return string
+     */
+    protected function redirectTo()
+    {
+        if (request()->has('redirect')) {
+            return request()->input('redirect');
+        }
+        
+        return RouteServiceProvider::HOME;
+    }
 } 

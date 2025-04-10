@@ -14,7 +14,7 @@ class AddStatusToPrescriptionsTable extends Migration
     public function up()
     {
         Schema::table('prescriptions', function (Blueprint $table) {
-            $table->string('status')->default('pending')->after('total_amount');
+            $table->string('status')->default('pending');
         });
     }
 

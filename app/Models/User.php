@@ -21,7 +21,9 @@ class User extends Authenticatable
         'phone',
         'address',
         'specialization',
-        'status'
+        'status',
+        'email_verification_token',
+        'avatar'
     ];
     
     protected $hidden = [
@@ -102,5 +104,10 @@ class User extends Authenticatable
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'id_user');
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class, 'doctor_id');
     }
 }

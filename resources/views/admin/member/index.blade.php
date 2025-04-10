@@ -1,13 +1,11 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Quản lý thành viên')
-
-@section('page-title', 'Quản lý thành viên')
 
 @section('content')
 <!-- Thống kê -->
 <div class="row">
-    <div class="col-xl-4 col-md-6 mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
         <div class="card border-left-info shadow h-100 py-2">
             <div class="card-body">
                 <div class="row no-gutters align-items-center">
@@ -23,17 +21,69 @@
             </div>
         </div>
     </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Thành viên hoạt động</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ $members->where('status', 'active')->count() }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-check fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Thành viên bị vô hiệu hóa</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ $members->where('status', 'inactive')->count() }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-lock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Thêm mới</div>
+                        <button type="button" class="btn btn-sm btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+                            <i class="fas fa-plus"></i> Thêm thành viên
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-plus fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Danh sách thành viên -->
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <div class="d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Danh sách thành viên</h6>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMemberModal">
-                <i class="fas fa-plus"></i> Thêm thành viên
-            </button>
-        </div>
+        <h6 class="m-0 font-weight-bold text-primary">Danh sách thành viên</h6>
     </div>
     <div class="card-body">
         @if(session('success'))
@@ -51,7 +101,7 @@
         @endif
 
         <div class="table-responsive">
-            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+            <table class="table table-bordered" id="membersTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -72,33 +122,20 @@
                         <td>{{ $member->phone }}</td>
                         <td>{{ $member->address }}</td>
                         <td>
-                            @if($member->status == 1)
-                                <span class="badge bg-success">Đang hoạt động</span>
+                            @if($member->status == 'active')
+                                <span class="badge bg-success text-white">Hoạt động</span>
                             @else
-                                <span class="badge bg-danger">Đã vô hiệu hóa</span>
+                                <span class="badge bg-danger text-white">Vô hiệu hóa</span>
                             @endif
                         </td>
                         <td>
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                    Thay đổi trạng thái
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item {{ $member->status === 1 ? 'disabled' : '' }}" 
-                                          href="#" onclick="updateStatus({{ $member->id_user }}, 1)">
-                                        <i class="fas fa-check text-success"></i> Kích hoạt
-                                    </a></li>
-                                    <li><a class="dropdown-item {{ $member->status === 0 ? 'disabled' : '' }}" 
-                                          href="#" onclick="updateStatus({{ $member->id_user }}, 0)">
-                                        <i class="fas fa-ban text-danger"></i> Vô hiệu hóa
-                                    </a></li>
-                                </ul>
-                            </div>
-                            <button class="btn btn-sm btn-info mt-1" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editMemberModal" 
-                                    data-member="{{ json_encode($member) }}">
-                                <i class="fas fa-edit"></i> Sửa
+                            <button class="btn btn-sm btn-info edit-member" data-member-id="{{ $member->id_user }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-{{ $member->status == 'active' ? 'danger' : 'success' }} toggle-status" 
+                                   data-member-id="{{ $member->id_user }}" 
+                                   data-status="{{ $member->status == 'active' ? 'inactive' : 'active' }}">
+                                <i class="fas fa-{{ $member->status == 'active' ? 'ban' : 'check' }}"></i>
                             </button>
                         </td>
                     </tr>
@@ -118,7 +155,7 @@
                 <h5 class="modal-title">Thêm thành viên mới</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ route('admin.member.store') }}" method="POST">
+            <form id="addMemberForm" action="{{ route('admin.member.store') }}" method="POST">
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
@@ -188,83 +225,205 @@
         </div>
     </div>
 </div>
+
+<!-- Modal xác nhận thay đổi trạng thái -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Xác nhận thay đổi trạng thái</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="statusMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="confirmStatus">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
-@section('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Xử lý modal chỉnh sửa
-        const editModal = document.getElementById('editMemberModal');
-        editModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const member = JSON.parse(button.getAttribute('data-member'));
-            
-            // Cập nhật action của form
-            const form = document.getElementById('editMemberForm');
-            form.action = `/admin/member/${member.id_user}`;
-            
-            // Điền thông tin vào form
-            document.getElementById('edit_name').value = member.name;
-            document.getElementById('edit_email').value = member.email;
-            document.getElementById('edit_phone').value = member.phone;
-            document.getElementById('edit_address').value = member.address;
-        });
+@push('styles')
+<style>
+    .badge {
+        padding: 0.5em 0.8em;
+        border-radius: 0.25rem;
+    }
+    .bg-success {
+        background-color: #28a745 !important;
+    }
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+    .border-left-info {
+        border-left: 0.25rem solid #36b9cc !important;
+    }
+    .border-left-success {
+        border-left: 0.25rem solid #1cc88a !important;
+    }
+    .border-left-warning {
+        border-left: 0.25rem solid #f6c23e !important;
+    }
+    .border-left-primary {
+        border-left: 0.25rem solid #4e73df !important;
+    }
+    .text-xs {
+        font-size: .7rem;
+    }
+</style>
+@endpush
 
-        // Xử lý submit form chỉnh sửa
-        document.getElementById('editMemberForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            fetch(this.action, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Khởi tạo DataTables
+    $('#membersTable').DataTable({
+        language: {
+            url: "//cdn.datatables.net/plug-ins/1.10.24/i18n/Vietnamese.json"
+        },
+        pageLength: 10,
+        ordering: true,
+        "columnDefs": [
+            { "orderable": false, "targets": 6 } // Vô hiệu hóa sắp xếp cho cột thao tác
+        ]
+    });
+
+    // Xử lý thêm thành viên
+    $('#addMemberForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const formData = new FormData(form[0]);
+        
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('Thêm thành viên mới thành công!');
                     location.reload();
                 } else {
-                    alert('Có lỗi xảy ra: ' + data.message);
+                    alert('Có lỗi xảy ra: ' + response.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Có lỗi xảy ra khi cập nhật thông tin');
-            });
+            },
+            error: function(xhr) {
+                alert('Có lỗi xảy ra khi thêm thành viên');
+                console.error(xhr.responseText);
+            }
         });
     });
 
-    // Cập nhật trạng thái
-    function updateStatus(userId, status) {
-        if (confirm('Bạn có chắc muốn thay đổi trạng thái của thành viên này?')) {
-            fetch(`/admin/member/${userId}/status`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ status: status })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
+    // Xử lý nút chỉnh sửa thành viên
+    $('.edit-member').on('click', function() {
+        const memberId = $(this).data('member-id');
+        
+        // Lấy thông tin thành viên qua AJAX
+        $.ajax({
+            url: `/admin/member/${memberId}/edit`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                // Cập nhật action của form
+                $('#editMemberForm').attr('action', `/admin/member/${memberId}`);
+                
+                // Điền thông tin vào form
+                $('#edit_name').val(data.name);
+                $('#edit_email').val(data.email);
+                $('#edit_phone').val(data.phone);
+                $('#edit_address').val(data.address);
+                
+                // Hiển thị modal
+                $('#editMemberModal').modal('show');
+            },
+            error: function(xhr) {
+                alert('Không thể lấy thông tin thành viên');
+                console.error(xhr.responseText);
+            }
+        });
+    });
+
+    // Xử lý form chỉnh sửa thành viên
+    $('#editMemberForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const formData = new FormData(form[0]);
+        
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('Cập nhật thông tin thành viên thành công!');
                     location.reload();
                 } else {
-                    alert('Có lỗi xảy ra: ' + data.message);
+                    alert('Có lỗi xảy ra: ' + response.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
+            },
+            error: function(xhr) {
+                alert('Có lỗi xảy ra khi cập nhật thông tin');
+                console.error(xhr.responseText);
+            }
+        });
+    });
+
+    // Xử lý nút thay đổi trạng thái
+    let memberIdToUpdate = null;
+    let statusToSet = null;
+    
+    $('.toggle-status').on('click', function() {
+        memberIdToUpdate = $(this).data('member-id');
+        statusToSet = $(this).data('status');
+        
+        const action = statusToSet == 'active' ? 'kích hoạt' : 'vô hiệu hóa';
+        $('#statusMessage').text(`Bạn có chắc chắn muốn ${action} tài khoản thành viên này?`);
+        
+        $('#statusModal').modal('show');
+    });
+    
+    // Xử lý xác nhận thay đổi trạng thái
+    $('#confirmStatus').on('click', function() {
+        if (!memberIdToUpdate) return;
+        
+        $.ajax({
+            url: `/admin/member/${memberIdToUpdate}/status`,
+            type: 'POST',
+            data: {
+                status: statusToSet,
+                _token: $('meta[name="csrf-token"]').attr('content')
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    alert(response.message);
+                    location.reload();
+                } else {
+                    alert('Có lỗi xảy ra: ' + response.message);
+                }
+            },
+            error: function(xhr) {
                 alert('Có lỗi xảy ra khi cập nhật trạng thái');
-            });
-        }
-    }
+                console.error(xhr.responseText);
+            }
+        });
+        
+        $('#statusModal').modal('hide');
+    });
+});
 </script>
-@endsection 
+@endpush 

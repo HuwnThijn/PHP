@@ -43,13 +43,13 @@
                 <tbody>
                     @forelse($prescriptions as $prescription)
                     <tr>
-                        <td>#{{ $prescription->id }}</td>
+                        <td>#{{ $prescription->id_prescription }}</td>
                         <td>{{ $prescription->patient->name }}</td>
                         <td>{{ $prescription->doctor->name }}</td>
                         <td>{{ $prescription->created_at->format('d/m/Y H:i') }}</td>
                         <td>{{ number_format($prescription->total_amount) }} VNĐ</td>
                         <td>
-                            <a href="{{ route('pharmacist.prescriptions.show', $prescription->id) }}" class="btn btn-info btn-sm">
+                            <a href="{{ route('pharmacist.prescriptions.show', $prescription->id_prescription) }}" class="btn btn-info btn-sm">
                                 <i class="fas fa-eye"></i> Xem
                             </a>
                         </td>

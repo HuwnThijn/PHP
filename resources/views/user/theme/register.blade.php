@@ -24,18 +24,18 @@
           
           <div class="row mb-4">
             <div class="col-md-4">
-              <a href="#" class="btn btn-primary btn-block">
+              <a href="{{ route('auth.social', 'facebook') }}" class="btn btn-facebook btn-block">
                 <i class="icofont-facebook mr-2"></i> Facebook
               </a>
             </div>
             <div class="col-md-4">
-              <a href="#" class="btn btn-info btn-block">
+              <a href="{{ route('auth.social', 'twitter') }}" class="btn btn-twitter btn-block">
                 <i class="icofont-twitter mr-2"></i> Twitter
               </a>
             </div>
             <div class="col-md-4">
-              <a href="#" class="btn btn-danger btn-block">
-                <i class="icofont-google-plus mr-2"></i> Google+
+              <a href="{{ route('auth.social', 'google') }}" class="btn btn-google btn-block">
+                <i class="icofont-google-plus mr-2"></i> Google
               </a>
             </div>
           </div>
@@ -163,6 +163,40 @@
   .btn-block {
     display: block;
     width: 100%;
+  }
+  
+  /* CSS cho nút đăng nhập mạng xã hội */
+  .btn-facebook {
+    background-color: #3b5998;
+    border-color: #3b5998;
+    color: white;
+  }
+  .btn-facebook:hover {
+    background-color: #2d4373;
+    border-color: #2d4373;
+    color: white;
+  }
+  
+  .btn-twitter {
+    background-color: #1da1f2;
+    border-color: #1da1f2;
+    color: white;
+  }
+  .btn-twitter:hover {
+    background-color: #0c85d0;
+    border-color: #0c85d0;
+    color: white;
+  }
+  
+  .btn-google {
+    background-color: #ea4335;
+    border-color: #ea4335;
+    color: white;
+  }
+  .btn-google:hover {
+    background-color: #d62516;
+    border-color: #d62516;
+    color: white;
   }
 </style>
 @endsection 

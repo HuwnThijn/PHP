@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Pharmacist\PharmacistController;
 use App\Http\Controllers\Auth\PharmacistLoginController;
 use App\Http\Controllers\LanguageController;
+use App\Http\Controllers\Auth\SocialiteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -108,6 +109,10 @@ Route::post('/product/review/delete', [UserController::class, 'deleteProductRevi
 
 // Language route
 Route::get('/language/{locale}', [LanguageController::class, 'changeLanguage'])->name('language.change');
+
+// OAuth routes
+Route::get('/auth/{provider}', [SocialiteController::class, 'redirectToProvider'])->name('auth.social');
+Route::get('/auth/{provider}/callback', [SocialiteController::class, 'handleProviderCallback'])->name('auth.social.callback');
 
 // Routes xác thực cơ bản
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');

@@ -9,7 +9,11 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Pharmacist\PharmacistController;
 use App\Http\Controllers\Auth\PharmacistLoginController;
 use App\Http\Controllers\LanguageController;
-use App\Http\Controllers\Auth\SocialiteController;
+use App\Http\Controllers\Doctor\ScheduleController;
+use App\Http\Controllers\Doctor\DoctorScheduleController;
+use App\Http\Controllers\Doctor\DoctorController;
+use App\Http\Controllers\Auth\DoctorLoginController;
+use App\Http\Controllers\User\OrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,7 +34,7 @@ use App\Http\Controllers\Auth\SocialiteController;
 Route::get('/', [UserController::class,'index'])-> name('index');
 Route::get('/product/{slug}', [UserController::class,'product'])-> name('product');
 //Route::get('/doctor/{slug}', [UserController::class,'doctor'])-> name('doctor');
-Route::get('/doctor/', [UserController::class,'doctor'])-> name('doctor');
+Route::get('/doctors/', [UserController::class,'doctor'])-> name('doctors');
 Route::get('/detailsp/{slug}', [UserController::class,'detailsp'])-> name('detailsp');
 Route::get('/about/', [UserController::class,'about'])-> name('about');
 Route::get('/service/', [UserController::class,'service'])-> name('service');
@@ -78,6 +82,10 @@ Route::prefix('user')->name('user.')->group(function () {
         Route::post('/forgot-password', [UserController::class, 'sendResetLinkEmail'])->name('password.email');
         Route::get('/reset-password/{token}', [UserController::class, 'showResetPasswordForm'])->name('password.reset');
         Route::post('/reset-password', [UserController::class, 'resetPassword'])->name('password.update');
+        
+        // Socialite Authentication Routes
+        Route::get('/auth/{provider}', [\App\Http\Controllers\Auth\SocialiteController::class, 'redirectToProvider'])->name('socialite.redirect');
+        Route::get('/auth/{provider}/callback', [\App\Http\Controllers\Auth\SocialiteController::class, 'handleProviderCallback'])->name('socialite.callback');
     });
     
     // Authenticated user routes
@@ -98,10 +106,34 @@ Route::prefix('user')->name('user.')->group(function () {
         Route::post('/cart/update', [UserController::class, 'updateCart'])->name('cart.update');
         Route::post('/cart/remove', [UserController::class, 'removeFromCart'])->name('cart.remove');
         Route::get('/orders', [UserController::class, 'showOrders'])->name('orders');
+        Route::post('/orders', [UserController::class, 'placeOrder'])->name('orders.store');
+        Route::get('/orders/{id}', [UserController::class, 'showOrder'])->name('orders.show');
+        Route::get('/checkout', [UserController::class, 'checkout'])->name('checkout');
+        Route::post('/order/store', [UserController::class, 'placeOrder'])->name('order.store');
     });
 });
 
+// Các route cho chức năng của User
+Route::middleware(['auth'])->group(function () {
+    // Giỏ hàng
+    Route::get('/cart', [UserController::class, 'showCart'])->name('cart');
+    Route::post('/cart/update', [UserController::class, 'updateCart'])->name('cart.update');
+    Route::post('/cart/remove', [UserController::class, 'removeFromCart'])->name('cart.remove');
+    
+    // Đơn hàng
+    Route::get('/orders', [UserController::class, 'showOrders'])->name('orders');
+    Route::post('/order/store', [UserController::class, 'placeOrder'])->name('order.store');
+    Route::get('/checkout', [UserController::class, 'checkout'])->name('checkout');
+    
+    // Thanh toán
+    Route::post('/create-payment-intent', [UserController::class, 'createPaymentIntent'])->name('user.create-payment-intent');
+});
+
+// Route thêm vào giỏ hàng không yêu cầu đăng nhập (đặt ở ngoài middleware auth)
 Route::post('/cart/add', [UserController::class, 'addToCart'])->name('cart.add');
+
+// Order store route
+Route::post('/user/order/store', [UserController::class, 'placeOrder'])->name('order.store');
 
 // Product review route
 Route::post('/product/review', [UserController::class, 'storeProductReview'])->name('product.review.store');
@@ -109,10 +141,6 @@ Route::post('/product/review/delete', [UserController::class, 'deleteProductRevi
 
 // Language route
 Route::get('/language/{locale}', [LanguageController::class, 'changeLanguage'])->name('language.change');
-
-// OAuth routes
-Route::get('/auth/{provider}', [SocialiteController::class, 'redirectToProvider'])->name('auth.social');
-Route::get('/auth/{provider}/callback', [SocialiteController::class, 'handleProviderCallback'])->name('auth.social.callback');
 
 // Routes xác thực cơ bản
 Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -122,126 +150,165 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 // Routes cho admin
 Route::group(['prefix' => 'admin', 'as' => 'admin.'], function () {
     // Routes không cần auth
-    Route::get('/login', [AdminController::class, 'showLoginForm'])->name('login.form');
-    Route::post('/login', [AdminController::class, 'login'])->name('login.submit');
+    Route::get('/login', [App\Http\Controllers\Admin\AdminController::class, 'showLoginForm'])->name('login.form');
+    Route::post('/login', [App\Http\Controllers\Admin\AdminController::class, 'login'])->name('login.submit');
 
     // Routes cần auth và role admin
     Route::middleware(['auth', 'admin'])->group(function () {
         // Dashboard
-        Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
-        Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/', [App\Http\Controllers\Admin\AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard', [App\Http\Controllers\Admin\AdminController::class, 'dashboard'])->name('dashboard');
+
+        // Quản lý mỹ phẩm
+        Route::prefix('cosmetics')->name('cosmetics.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\CosmeticController::class, 'index'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\CosmeticController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [App\Http\Controllers\Admin\CosmeticController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [App\Http\Controllers\Admin\CosmeticController::class, 'update'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\Admin\CosmeticController::class, 'destroy'])->name('destroy');
+        });
+
+        // Quản lý lịch làm việc của bác sĩ
+        Route::prefix('schedules')->name('schedules.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\ScheduleController::class, 'index'])->name('index');
+            Route::get('/doctor/{doctorId}', [App\Http\Controllers\Admin\ScheduleController::class, 'doctorSchedule'])->name('doctor');
+            Route::get('/doctor/{doctorId}/create', [App\Http\Controllers\Admin\ScheduleController::class, 'create'])->name('create');
+            Route::post('/doctor/{doctorId}', [App\Http\Controllers\Admin\ScheduleController::class, 'store'])->name('store');
+            Route::get('/doctor/{doctorId}/schedule/{id}/edit', [App\Http\Controllers\Admin\ScheduleController::class, 'edit'])->name('edit');
+            Route::put('/doctor/{doctorId}/schedule/{id}', [App\Http\Controllers\Admin\ScheduleController::class, 'update'])->name('update');
+            Route::delete('/doctor/{doctorId}/schedule/{id}', [App\Http\Controllers\Admin\ScheduleController::class, 'destroy'])->name('destroy');
+        });
 
         // Quản lý nhân viên
         Route::prefix('staff')->name('staff.')->group(function () {
-            Route::get('/', [AdminController::class, 'staffIndex'])->name('index');
-            Route::post('/', [AdminController::class, 'createMedicalStaff'])->name('store');
-            Route::post('/{userId}/toggle-lock', [AdminController::class, 'toggleUserLock'])->name('toggle-lock');
-            Route::put('/{userId}', [AdminController::class, 'updateStaff'])->name('update');
+            Route::get('/', [App\Http\Controllers\Admin\AdminController::class, 'staffIndex'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\AdminController::class, 'createMedicalStaff'])->name('store');
+            Route::post('/{userId}/toggle-lock', [App\Http\Controllers\Admin\AdminController::class, 'toggleUserLock'])->name('toggle-lock');
+            Route::put('/{userId}', [App\Http\Controllers\Admin\AdminController::class, 'updateStaff'])->name('update');
         });
 
         // Quản lý thuốc
         Route::prefix('medicine')->name('medicine.')->group(function () {
-            Route::get('/', [AdminController::class, 'medicineIndex'])->name('index');
-            Route::post('/', [AdminController::class, 'createMedicine'])->name('store');
-            Route::put('/{medicineId}', [AdminController::class, 'updateMedicine'])->name('update');
-            Route::delete('/{medicineId}', [AdminController::class, 'deleteMedicine'])->name('delete');
+            Route::get('/', [App\Http\Controllers\Admin\AdminController::class, 'medicineIndex'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\AdminController::class, 'medicineStore'])->name('store');
+            Route::get('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'showMedicine'])->name('show');
+            Route::put('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'updateMedicine'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'deleteMedicine'])->name('destroy');
         });
 
         // Quản lý trị liệu
         Route::prefix('treatment')->name('treatment.')->group(function () {
-            Route::get('/', [AdminController::class, 'treatmentIndex'])->name('index');
-            Route::post('/', [AdminController::class, 'createTreatment'])->name('store');
-            Route::put('/{treatmentId}', [AdminController::class, 'updateTreatment'])->name('update');
-            Route::delete('/{treatmentId}', [AdminController::class, 'deleteTreatment'])->name('delete');
+            Route::get('/', [App\Http\Controllers\Admin\AdminController::class, 'treatmentIndex'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\AdminController::class, 'treatmentStore'])->name('store');
+            Route::get('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'showTreatment'])->name('show');
+            Route::put('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'updateTreatment'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'deleteTreatment'])->name('destroy');
         });
 
         // Quản lý doanh thu
-        Route::get('/revenue', [AdminController::class, 'revenueIndex'])->name('revenue');
-        Route::get('/revenue/data', [AdminController::class, 'getRevenueData'])->name('revenue.data');
+        Route::get('/revenue', [App\Http\Controllers\Admin\AdminController::class, 'revenueIndex'])->name('revenue.index');
+        Route::get('/revenue/data', [App\Http\Controllers\Admin\AdminController::class, 'getRevenueData'])->name('revenue.data');
+
+        // Quản lý đơn hàng
+        Route::prefix('orders')->name('orders.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\OrderController::class, 'index'])->name('index');
+            Route::get('/{id}', [App\Http\Controllers\Admin\OrderController::class, 'show'])->name('show');
+            Route::put('/{id}/status', [App\Http\Controllers\Admin\OrderController::class, 'updateStatus'])->name('update-status');
+            Route::get('/export/excel', [App\Http\Controllers\Admin\OrderController::class, 'exportExcel'])->name('export.excel');
+            Route::get('/export/pdf', [App\Http\Controllers\Admin\OrderController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/{id}/invoice', [App\Http\Controllers\Admin\OrderController::class, 'invoice'])->name('invoice');
+        });
+
+        // Quản lý thành viên
+        Route::prefix('member')->name('member.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\AdminController::class, 'memberIndex'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\AdminController::class, 'memberStore'])->name('store');
+            Route::put('/{id}', [App\Http\Controllers\Admin\AdminController::class, 'memberUpdate'])->name('update');
+            Route::post('/{userId}/status', [App\Http\Controllers\Admin\AdminController::class, 'updateMemberStatus'])->name('updateStatus');
+            Route::get('/{id}/edit', [App\Http\Controllers\Admin\AdminController::class, 'getMemberInfo'])->name('edit');
+        });
 
         // Đăng xuất
-        Route::post('/logout', [AdminController::class, 'logout'])->name('logout');
+        Route::post('/logout', [App\Http\Controllers\Admin\AdminController::class, 'logout'])->name('logout');
 
-        // Cập nhật trạng thái user
-        Route::post('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('users.update-status');
+        // Cập nhật trạng thái user - cần match với URL trong JavaScript
+        Route::match(['post', 'put'], '/users/{id}/status', [App\Http\Controllers\Admin\AdminController::class, 'manageAccountStatus'])->name('users.status');
     });
-
-    // Routes cho quản lý thuốc
-    Route::get('/medicine', [AdminController::class, 'medicineIndex'])->name('admin.medicine.index');
-    Route::post('/medicine', [AdminController::class, 'medicineStore'])->name('admin.medicine.store');
-    Route::put('/medicine/{id}', [AdminController::class, 'medicineUpdate'])->name('admin.medicine.update');
-    Route::delete('/medicine/{id}', [AdminController::class, 'medicineDestroy'])->name('admin.medicine.destroy');
-    
-    Route::get('/treatment', [AdminController::class, 'treatmentIndex'])->name('admin.treatment.index');
-    Route::post('/treatment', [AdminController::class, 'treatmentStore'])->name('admin.treatment.store');
-    Route::put('/treatment/{id}', [AdminController::class, 'treatmentUpdate'])->name('admin.treatment.update');
-    Route::delete('/treatment/{id}', [AdminController::class, 'treatmentDestroy'])->name('admin.treatment.destroy');
 });
 
-// Route tạm thởi để reset mật khẩu admin (Xóa route này sau khi đã reset xong)
-Route::get('/reset-admin-password', function() {
-    $admin = \App\Models\User::where('email', 'admin@gmail.com')->first();
-    if($admin) {
-        $admin->password = \Illuminate\Support\Facades\Hash::make('123456');
-        $admin->save();
-        return "Đã reset mật khẩu admin thành: 123456";
-    }
-    return "Không tìm thấy tài khoản admin";
+// Routes cho bác sĩ
+Route::prefix('doctor')->name('doctor.')->group(function () {
+    // Routes không cần auth
+    Route::get('/login', [DoctorLoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [DoctorLoginController::class, 'login'])->name('login.submit');
+    Route::post('/logout', [DoctorLoginController::class, 'logout'])->name('logout');
+
+    // Routes cần auth và role doctor
+    Route::middleware(['auth', 'doctor'])->group(function () {
+        // Dashboard
+        Route::get('/', [DoctorController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard', [DoctorController::class, 'dashboard'])->name('dashboard');
+
+        // Lịch làm việc
+        Route::prefix('schedules')->name('schedules.')->group(function () {
+            Route::get('/', [DoctorScheduleController::class, 'index'])->name('index');
+            Route::get('/week', [DoctorScheduleController::class, 'showWeek'])->name('week');
+            Route::get('/create', [DoctorScheduleController::class, 'create'])->name('create');
+            Route::post('/', [DoctorScheduleController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [DoctorScheduleController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [DoctorScheduleController::class, 'update'])->name('update');
+            Route::delete('/{id}', [DoctorScheduleController::class, 'destroy'])->name('destroy');
+        });
+
+        // Quản lý bệnh nhân
+        Route::prefix('patients')->name('patients.')->group(function () {
+            // Danh sách bệnh nhân chờ khám
+            Route::get('/pending', [DoctorController::class, 'pendingPatients'])->name('pending');
+            
+            // Lịch sử khám bệnh
+            Route::get('/history', [DoctorController::class, 'patientHistory'])->name('history');
+            
+            // Xem chi tiết bệnh án
+            Route::get('/{id}', [DoctorController::class, 'showMedicalRecord'])->name('show');
+            
+            // Form khám bệnh
+            Route::get('/{id}/examination', [DoctorController::class, 'showExamination'])->name('examination');
+            
+            // Lưu kết quả khám
+            Route::post('/{id}/examination', [DoctorController::class, 'saveExamination'])->name('save_examination');
+        });
+
+        // Quản lý đơn thuốc
+        Route::prefix('prescriptions')->name('prescriptions.')->group(function () {
+            Route::get('/', [DoctorController::class, 'prescriptionIndex'])->name('index');
+            Route::get('/{id}', [DoctorController::class, 'showPrescription'])->name('show');
+        });
+    });
 });
 
-Route::post('/admin/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('admin.users.updateStatus');
-
-Route::put('/admin/staff/{id}', [AdminController::class, 'updateStaff'])->name('admin.staff.update');
-
-Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
-    // Dashboard
-    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+// API routes
+Route::prefix('api')->name('api.')->group(function () {
+    // Bác sĩ có lịch làm việc vào một ngày cụ thể
+    Route::get('/doctors/available', [DoctorScheduleController::class, 'getDoctorsAvailableOn'])->name('doctors.available');
     
-    // Quản lý nhân viên
-    Route::get('/staff', [AdminController::class, 'staffIndex'])->name('staff.index');
-    Route::post('/staff/store', [AdminController::class, 'createMedicalStaff'])->name('staff.store');
-    Route::post('/users/{userId}/status', [AdminController::class, 'updateUserStatus'])->name('users.updateStatus');
+    // Lấy bác sĩ có lịch làm việc vào một ngày cụ thể (cho đặt lịch hẹn)
+    Route::get('/appointments/doctors', [App\Http\Controllers\User\AppointmentController::class, 'getDoctorsAvailableOn'])->name('appointments.doctors');
     
-    // Quản lý thuốc
-    Route::get('/medicine', [AdminController::class, 'medicineIndex'])->name('medicine.index');
-    Route::post('/medicine', [AdminController::class, 'medicineStore'])->name('medicine.store');
-    Route::put('/medicine/{id}', [AdminController::class, 'updateMedicine'])->name('medicine.update');
-    Route::delete('/medicine/{id}', [AdminController::class, 'deleteMedicine'])->name('medicine.destroy');
-    
-    // Quản lý trị liệu
-    Route::get('/treatment', [AdminController::class, 'treatmentIndex'])->name('treatment.index');
-    Route::post('/treatment', [AdminController::class, 'treatmentStore'])->name('treatment.store');
-    Route::put('/treatment/{id}', [AdminController::class, 'updateTreatment'])->name('treatment.update');
-    Route::delete('/treatment/{id}', [AdminController::class, 'deleteTreatment'])->name('treatment.destroy');
-
-    // Quản lý khách hàng
-    Route::get('/customers', [AdminController::class, 'customerIndex'])->name('customers.index');
-    Route::post('/customers/{userId}/status', [AdminController::class, 'updateCustomerStatus'])->name('customers.updateStatus');
-
-    // Quản lý thành viên
-    Route::get('/member', [AdminController::class, 'memberIndex'])->name('member.index');
-    Route::post('/member', [AdminController::class, 'memberStore'])->name('member.store');
-    Route::put('/member/{id}', [AdminController::class, 'memberUpdate'])->name('member.update');
-    Route::post('/member/{userId}/status', [AdminController::class, 'updateMemberStatus'])->name('member.updateStatus');
+    // Lấy khung giờ làm việc của bác sĩ vào một ngày cụ thể
+    Route::get('/appointments/timeslots', [App\Http\Controllers\User\AppointmentController::class, 'getDoctorAvailableTimeSlots'])->name('appointments.timeslots');
 });
 
-// Routes đăng nhập cho dược sĩ
-Route::group(['prefix' => 'pharmacist'], function () {
-    Route::get('/login', [PharmacistLoginController::class, 'showLoginForm'])->name('pharmacist.login');
-    Route::post('/login', [PharmacistLoginController::class, 'login'])->name('pharmacist.login.submit');
-    Route::post('/logout', [PharmacistLoginController::class, 'logout'])->name('pharmacist.logout');
-});
-
-// Routes cho dược sĩ sau khi đăng nhập
+// Routes cho dược sĩ 
 Route::prefix('pharmacist')->name('pharmacist.')->group(function () {
-    // Route đăng nhập
+    // Routes không cần auth
     Route::get('/login', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'login'])->name('login.submit');
     Route::post('/logout', [App\Http\Controllers\Auth\PharmacistLoginController::class, 'logout'])->name('logout');
     
-    // Route cho người dùng đã đăng nhập
+    // Routes cần auth và role pharmacist
     Route::middleware(['auth', 'pharmacist'])->group(function () {
         // Dashboard
+        Route::get('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'index'])->name('dashboard');
         Route::get('/dashboard', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'index'])->name('dashboard');
         
         // Quản lý đơn thuốc
@@ -250,6 +317,15 @@ Route::prefix('pharmacist')->name('pharmacist.')->group(function () {
             Route::get('/history', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'prescriptionHistory'])->name('history');
             Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showPrescription'])->name('show');
             Route::post('/{id}/process', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'processPrescription'])->name('process');
+            Route::get('/{id}/print', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'printPrescription'])->name('print');
+        });
+        
+        // Tiếp nhận bệnh nhân và đơn thuốc
+        Route::prefix('patients')->name('patients.')->group(function () {
+            Route::get('/receive', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'receivePatient'])->name('receive');
+            Route::post('/process', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'processPatient'])->name('process');
+            Route::get('/medical-record/{id}/prescription', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'receivePrescription'])->name('prescription');
+            Route::post('/medical-record/{id}/complete', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'completePrescription'])->name('complete');
         });
         
         // Quản lý kho
@@ -275,5 +351,18 @@ Route::prefix('pharmacist')->name('pharmacist.')->group(function () {
             Route::post('/', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'storeReturn'])->name('store');
             Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showReturn'])->name('show');
         });
+    });
+});
+
+// Các route cho quản lý đơn hàng
+Route::get('/orders', [UserController::class, 'showOrders'])->name('orders');
+Route::get('/api/order-items', [UserController::class, 'getOrderItems'])->name('api.order.items');
+Route::post('/order/cancel', [UserController::class, 'cancelOrder'])->name('order.cancel');
+
+// Nhóm các route cho user
+Route::prefix('user')->name('user.')->middleware(['auth', 'checkUserRole:3'])->group(function () {
+    // Nhóm các route cho appointment
+    Route::prefix('appointment')->name('appointment.')->group(function () {
+        Route::get('/get-doctors-available', [App\Http\Controllers\User\AppointmentController::class, 'getDoctorsAvailable'])->name('getDoctorsAvailable');
     });
 });

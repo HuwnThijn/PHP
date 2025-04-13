@@ -1,6 +1,6 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
-@section('title', 'Quản lý trị liệu')
+@section('title', 'Quản lý Trị liệu')
 
 @section('page-title', 'Quản lý trị liệu')
 
@@ -188,10 +188,6 @@
             const formData = new FormData(this);
             fetch(this.action, {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                },
                 body: formData
             })
             .then(response => response.json())

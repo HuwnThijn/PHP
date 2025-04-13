@@ -62,16 +62,16 @@
                     <li class="nav-item active"><a class="nav-link" href="{{ route('index') }}">{{ __('menu.home') }}</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('about') }}">{{ __('menu.about') }}</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('service') }}">{{ __('menu.services') }}</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ route('doctor') }}">{{ __('menu.doctor') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ route('doctors') }}">{{ __('menu.doctor') }}</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('store') }}">{{ __('menu.store') }}</a></li>
                     <li class="nav-item"><a class="nav-link" href="{{ route('appoinment') }}">{{ __('menu.appointment') }}</a></li>
                     
                     {{-- <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="{{ route('doctor',['doctor-1']) }}" id="dropdown03"
+                        <a class="nav-link dropdown-toggle" href="{{ route('doctors') }}" id="dropdown03"
                             data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Doctors <i
                                 class="icofont-thin-down"></i></a>
                         <ul class="dropdown-menu" aria-labelledby="dropdown03">
-                            <li><a class="dropdown-item" href="{{ route('doctor', ['doctor-1']) }}">Doctors</a>
+                            <li><a class="dropdown-item" href="{{ route('doctors') }}">Doctors</a>
                             </li>
                             <li><a class="dropdown-item" href="{{ route('doctor-single') }}">Doctor Single</a></li>
                            

@@ -240,9 +240,10 @@
                                                     @endif
                                                     @endfor
                                             </div>
-                                            <a href="#" class="btn btn-main btn-small btn-round-full add-to-cart-btn" 
-                                               onclick="event.preventDefault(); addToCart('{{ $product->id_cosmetic }}')"
-                                               data-product-id="{{ $product->id_cosmetic }}">CHỌN MUA</a>
+                                            <button class="btn btn-main btn-small btn-round-full add-to-cart-btn" 
+                                                    onclick="event.preventDefault(); addToCart('{{ $product->id_cosmetic }}')"
+                                                    id="add-to-cart-{{ $product->id_cosmetic }}"
+                                                    data-product-id="{{ $product->id_cosmetic }}">CHỌN MUA</button>
                                         </div>
                                     </div>
                                 </div>
@@ -282,9 +283,10 @@
                                                         @endif
                                                     @endfor
                                                 </div>
-                                                <a href="#" class="btn btn-main btn-small btn-round-full add-to-cart-btn" 
-                                                   onclick="event.preventDefault(); addToCart('{{ $product->id_cosmetic }}')"
-                                                   data-product-id="{{ $product->id_cosmetic }}">CHỌN MUA</a>
+                                                <button class="btn btn-main btn-small btn-round-full add-to-cart-btn" 
+                                                        onclick="event.preventDefault(); addToCart('{{ $product->id_cosmetic }}')"
+                                                        id="add-to-cart-{{ $product->id_cosmetic }}"
+                                                        data-product-id="{{ $product->id_cosmetic }}">CHỌN MUA</button>
                                             </div>
                                         </div>
                                     </div>
@@ -527,60 +529,84 @@
             });
         }
 
-        // Function to add product to cart
+        // Thêm vào giỏ hàng bằng AJAX
         function addToCart(productId) {
+            console.log('Adding product to cart:', productId);
+
+            // Hiển thị hiệu ứng đang tải
+            $(`.add-to-cart-btn[data-product-id="${productId}"]`).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang thêm...');
+            
+            // Gửi yêu cầu AJAX
             $.ajax({
-                url: '{{ route('cart.add') }}',
+                url: '/cart/add',
                 type: 'POST',
                 data: {
-                    "product_id": productId,
-                    "_token": "{{ csrf_token() }}"
+                    product_id: productId,
+                    _token: '{{ csrf_token() }}'
                 },
+                dataType: 'json',
                 success: function(response) {
+                    console.log('Add to cart response:', response);
+                    
+                    // Phục hồi nút
+                    $(`.add-to-cart-btn[data-product-id="${productId}"]`).prop('disabled', false).html('CHỌN MUA');
+                    
                     if (response.success) {
                         // Hiển thị thông báo thành công
                         showToast(response.message, 'success');
-
-                        // Cập nhật số lượng sản phẩm trong giỏ hàng
+                        
+                        // Cập nhật số lượng trong giỏ hàng
                         updateCartCount(response.cart_count);
-
-                        // Hiệu ứng animation cho nút đã nhấn
-                        $('.add-to-cart-btn[data-product-id="' + productId + '"]').addClass('added').delay(1000).queue(function() {
+                        
+                        // Hiệu ứng nhấp nháy cho nút đã thêm
+                        $(`.add-to-cart-btn[data-product-id="${productId}"]`).addClass('added').delay(1000).queue(function() {
                             $(this).removeClass('added').dequeue();
                         });
                     } else {
+                        // Hiển thị thông báo lỗi
                         showToast(response.message || 'Không thể thêm sản phẩm vào giỏ hàng', 'error');
                     }
                 },
-                error: function(xhr) {
-                    console.error('Error adding to cart:', xhr);
-                    // Redirect to login if unauthorized (status code 401)
+                error: function(xhr, status, error) {
+                    console.error('AJAX error:', status, error);
+                    console.error('Response text:', xhr.responseText);
+                    
+                    // Phục hồi nút
+                    $(`.add-to-cart-btn[data-product-id="${productId}"]`).prop('disabled', false).html('CHỌN MUA');
+                    
+                    // Kiểm tra nếu lỗi 401 (Unauthorized) thì chuyển hướng đến trang đăng nhập
                     if (xhr.status === 401) {
-                        Swal.fire({
-                            title: 'Bạn cần đăng nhập',
-                            text: 'Bạn cần đăng nhập để thêm sản phẩm vào giỏ hàng. Bạn có muốn đăng nhập ngay bây giờ không?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33',
-                            confirmButtonText: 'Đăng nhập ngay',
-                            cancelButtonText: 'Không, để sau'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.location.href = '{{ route('login') }}?redirect=' + encodeURIComponent(window.location.href);
-                            }
-                        });
+                        showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'warning');
+                        
+                        // Chuyển hướng sau 1.5 giây
+                        setTimeout(function() {
+                            window.location.href = '{{ route("user.login") }}';
+                        }, 1500);
                     } else {
-                        showToast('Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.', 'error');
+                        // Hiển thị thông báo lỗi khác
+                        showToast('Có lỗi xảy ra khi thêm sản phẩm vào giỏ hàng: ' + (xhr.status === 500 ? 'Lỗi máy chủ nội bộ' : error), 'error');
                     }
-                },
-                complete: function() {
-                    // Do nothing
                 }
             });
+            
+            // Ngăn chặn sự kiện mặc định của click
+            return false;
         }
 
         $(document).ready(function() {
+            // Thiết lập CSRF token cho tất cả các yêu cầu AJAX
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+            
+            // Thêm sự kiện bắt lỗi AJAX toàn cục
+            $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
+                console.error('Global AJAX error handler:', jqxhr.status, thrownError);
+                console.error('Response text:', jqxhr.responseText);
+            });
+
             // Initialize event handlers
             initializeEventHandlers();
 

@@ -27,5 +27,7 @@
 
     <script src="{{ asset('user/theme/js/script.js') }}"></script>
 
+    @yield('scripts')
+
 </body>
 </html> 

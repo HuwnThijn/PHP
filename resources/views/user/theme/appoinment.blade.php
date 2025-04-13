@@ -39,6 +39,12 @@
                     <div class="appoinment-wrap mt-5 mt-lg-0">
                         <h2 class="mb-2 title-color">Đặt lịch khám</h2>
                         <p class="mb-4">Vui lòng điền đầy đủ thông tin để chúng tôi có thể sắp xếp lịch hẹn phù hợp cho bạn.</p>
+                        <div id="date-alert" class="alert alert-warning d-none">
+                            Vui lòng chọn ngày khám trước khi chọn bác sĩ
+                        </div>
+                        <div id="api-error" class="alert alert-danger d-none">
+                            Có lỗi xảy ra khi tải danh sách bác sĩ. Vui lòng thử lại sau.
+                        </div>
                         <form id="appointmentForm" class="appoinment-form" method="post" action="{{ route('user.appointment.store') }}">
                             @csrf
                             <div class="row">
@@ -54,19 +60,16 @@
                                 </div>
                                 <div class="col-lg-6">
                                     <div class="form-group">
-                                        <select class="form-control select-doctor" id="doctor" name="id_doctor" required>
-                                            <option value="">-- Chọn bác sĩ --</option>
-                                            @foreach($doctors as $doctor)
-                                                <option value="{{ $doctor->id_user }}">{{ $doctor->name }} ({{ $doctor->specialization ?? 'Đa khoa' }})</option>
-                                            @endforeach
-                                        </select>
+                                        <input name="appointment_date" id="date" type="date" class="form-control"
+                                            placeholder="Ngày khám" required min="{{ date('Y-m-d') }}">
                                     </div>
                                 </div>
 
                                 <div class="col-lg-6">
                                     <div class="form-group">
-                                        <input name="appointment_date" id="date" type="date" class="form-control"
-                                            placeholder="Ngày khám" required min="{{ date('Y-m-d') }}">
+                                        <select class="form-control select-doctor" id="doctor" name="id_doctor" required disabled>
+                                            <option value="">-- Chọn ngày trước --</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -136,6 +139,68 @@
     <script src="{{ asset('user/theme/plugins/jquery/jquery.js') }}"></script>
     <script>
         $(document).ready(function() {
+            // Xử lý khi thay đổi ngày
+            $('#date').on('change', function() {
+                let selectedDate = $(this).val();
+                
+                if (selectedDate) {
+                    // Kích hoạt dropdown bác sĩ và lấy danh sách bác sĩ có lịch trống
+                    $('#doctor').prop('disabled', false);
+                    $('#doctor').html('<option value="">-- Đang tải danh sách bác sĩ --</option>');
+                    $('#date-alert').addClass('d-none');
+                    $('#api-error').addClass('d-none');
+                    
+                    // Gọi API để lấy danh sách bác sĩ có lịch trống vào ngày đã chọn
+                    $.ajax({
+                        url: "/api/appointments/doctors",
+                        type: 'GET',
+                        data: { 
+                            date: selectedDate 
+                        },
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(response) {
+                            console.log("API Response:", response);
+                            
+                            let doctors = response.doctors;
+                            let options = '<option value="">-- Chọn bác sĩ --</option>';
+                            
+                            if (doctors && doctors.length > 0) {
+                                doctors.forEach(function(doctor) {
+                                    options += `<option value="${doctor.id_user}">${doctor.name} (${doctor.specialization || 'Đa khoa'})</option>`;
+                                });
+                            } else {
+                                options = '<option value="">Không có bác sĩ trống lịch vào ngày này</option>';
+                            }
+                            
+                            $('#doctor').html(options);
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Lỗi AJAX:", error);
+                            console.error("Trạng thái:", status);
+                            console.error("Phản hồi:", xhr.responseText);
+                            $('#api-error').removeClass('d-none').text('Lỗi khi tải danh sách bác sĩ: ' + error);
+                            $('#doctor').html('<option value="">-- Lỗi khi tải danh sách bác sĩ --</option>');
+                        }
+                    });
+                } else {
+                    // Nếu không chọn ngày, disable dropdown bác sĩ
+                    $('#doctor').prop('disabled', true);
+                    $('#doctor').html('<option value="">-- Chọn ngày trước --</option>');
+                }
+            });
+            
+            // Xử lý khi click vào dropdown bác sĩ mà chưa chọn ngày
+            $('#doctor').on('click', function() {
+                if (!$('#date').val()) {
+                    $('#date-alert').removeClass('d-none');
+                    setTimeout(function() {
+                        $('#date-alert').addClass('d-none');
+                    }, 3000);
+                }
+            });
+
             // Submit form handler
             $('#appointmentForm').on('submit', function(e) {
                 e.preventDefault();
@@ -152,6 +217,9 @@
                     url: $(this).attr('action'),
                     type: 'POST',
                     data: $(this).serialize(),
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
                     success: function(response) {
                         if (response.success) {
                             window.location.href = "{{ route('user.appointment.confirmation') }}";

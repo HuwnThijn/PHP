@@ -182,23 +182,16 @@
                 </li>
                 
                 <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('pharmacist.patients.*') ? 'active' : '' }}" href="{{ route('pharmacist.patients.receive') }}">
+                        <i class="fas fa-fw fa-user-plus"></i>
+                        <span>Tiếp nhận bệnh nhân</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('pharmacist.inventory.*') ? 'active' : '' }}" href="{{ route('pharmacist.inventory.index') }}">
                         <i class="fas fa-fw fa-boxes"></i>
                         <span>Kho thuốc</span>
-                    </a>
-                </li>
-                
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('pharmacist.orders.*') ? 'active' : '' }}" href="{{ route('pharmacist.orders.index') }}">
-                        <i class="fas fa-fw fa-shopping-cart"></i>
-                        <span>Đơn hàng</span>
-                    </a>
-                </li>
-                
-                <li class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('pharmacist.returns.*') ? 'active' : '' }}" href="{{ route('pharmacist.returns.index') }}">
-                        <i class="fas fa-fw fa-exchange-alt"></i>
-                        <span>Đổi trả</span>
                     </a>
                 </li>
             </ul>

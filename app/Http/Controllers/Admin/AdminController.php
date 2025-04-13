@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Medicine;
 use App\Models\Treatment;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -181,6 +182,16 @@ class AdminController extends Controller
         return view('admin.medicine.index', compact('medicines'));
     }
 
+    public function showMedicine($id)
+    {
+        try {
+            $medicine = Medicine::findOrFail($id);
+            return response()->json($medicine);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Không tìm thấy thuốc'], 404);
+        }
+    }
+
     public function medicineStore(Request $request)
     {
         try {
@@ -197,11 +208,17 @@ class AdminController extends Controller
 
             Medicine::create($validated);
 
-            return redirect()->back()->with('success', 'Thêm thuốc mới thành công!');
+            return response()->json(['success' => true, 'message' => 'Thêm thuốc mới thành công!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi xác thực: ' . implode(', ', $e->validator->errors()->all())
+            ], 422);
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
-                ->withInput();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -226,6 +243,11 @@ class AdminController extends Controller
                 'success' => true,
                 'message' => 'Cập nhật thông tin thuốc thành công!'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+             return response()->json([
+                'success' => false,
+                'message' => 'Lỗi xác thực: ' . implode(', ', $e->validator->errors()->all())
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -259,6 +281,16 @@ class AdminController extends Controller
         return view('admin.treatment.index', compact('treatments'));
     }
 
+    public function showTreatment($id)
+    {
+        try {
+            $treatment = Treatment::findOrFail($id);
+            return response()->json($treatment);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Không tìm thấy phương pháp điều trị'], 404);
+        }
+    }
+
     public function treatmentStore(Request $request)
     {
         try {
@@ -274,11 +306,17 @@ class AdminController extends Controller
 
             Treatment::create($validated);
 
-            return redirect()->back()->with('success', 'Thêm trị liệu mới thành công!');
+            return response()->json(['success' => true, 'message' => 'Thêm trị liệu mới thành công!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+             return response()->json([
+                'success' => false,
+                'message' => 'Lỗi xác thực: ' . implode(', ', $e->validator->errors()->all())
+            ], 422);
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
-                ->withInput();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -302,6 +340,11 @@ class AdminController extends Controller
                 'success' => true,
                 'message' => 'Cập nhật thông tin trị liệu thành công!'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+             return response()->json([
+                'success' => false,
+                'message' => 'Lỗi xác thực: ' . implode(', ', $e->validator->errors()->all())
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -386,6 +429,26 @@ class AdminController extends Controller
 
             $currentDate->addDay();
         }
+        
+        // Tạo collection cho doanh thu ngày
+        $dailyRevenue = collect([
+            (object)[
+                'date' => Carbon::today()->format('Y-m-d'),
+                'total' => Medicine::whereDate('created_at', Carbon::today())->sum('price') + 
+                          Treatment::whereDate('created_at', Carbon::today())->sum('price'),
+                'transaction_count' => Medicine::whereDate('created_at', Carbon::today())->count() +
+                                      Treatment::whereDate('created_at', Carbon::today())->count()
+            ]
+        ]);
+        
+        // Tạo collection cho doanh thu tháng
+        $monthlyRevenue = collect([
+            (object)[
+                'year' => Carbon::now()->year,
+                'month' => Carbon::now()->month,
+                'total' => $totalRevenue
+            ]
+        ]);
 
         return view('admin.revenue.index', compact(
             'revenue',
@@ -393,7 +456,9 @@ class AdminController extends Controller
             'medicineSales',
             'treatmentSales',
             'revenueData',
-            'revenueDistribution'
+            'revenueDistribution',
+            'dailyRevenue',
+            'monthlyRevenue'
         ));
     }
 
@@ -450,22 +515,38 @@ class AdminController extends Controller
         ]);
     }
 
+    // Quản lý nhân viên
     public function staffIndex()
     {
-        // Lấy danh sách tất cả user trừ admin (id_role = 1)
-        $users = User::where('id_role', '!=', 1)
-            ->orderBy('id_role')
-            ->orderBy('name')
-            ->paginate(10);
-
-        // Đếm số lượng theo từng loại
-        $counts = [
-            'doctor' => User::where('id_role', 2)->count(),
-            'pharmacist' => User::where('id_role', 3)->count(),
-            'member' => User::where('id_role', 4)->count()
-        ];
-
-        return view('admin.staff.index', compact('users', 'counts'));
+        $doctors = User::where('id_role', 2)->get();
+        $pharmacists = User::where('id_role', 3)->get();
+        
+        // Tính doanh thu ngày
+        $dailyMedicineSales = Medicine::whereDate('created_at', Carbon::today())->sum('price');
+        $dailyTreatmentSales = Treatment::whereDate('created_at', Carbon::today())->sum('price');
+        $dailyRevenue = $dailyMedicineSales + $dailyTreatmentSales;
+        
+        // Tính doanh thu tuần
+        $weeklyMedicineSales = Medicine::whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])->sum('price');
+        $weeklyTreatmentSales = Treatment::whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])->sum('price');
+        $weeklyRevenue = $weeklyMedicineSales + $weeklyTreatmentSales;
+        
+        // Tính doanh thu tháng
+        $monthlyMedicineSales = Medicine::whereMonth('created_at', Carbon::now()->month)
+                                        ->whereYear('created_at', Carbon::now()->year)
+                                        ->sum('price');
+        $monthlyTreatmentSales = Treatment::whereMonth('created_at', Carbon::now()->month)
+                                          ->whereYear('created_at', Carbon::now()->year)
+                                          ->sum('price');
+        $monthlyRevenue = $monthlyMedicineSales + $monthlyTreatmentSales;
+        
+        return view('admin.staff.index', compact(
+            'doctors', 
+            'pharmacists',
+            'dailyRevenue',
+            'weeklyRevenue',
+            'monthlyRevenue'
+        ));
     }
 
     public function updateUserStatus(Request $request, $userId)
@@ -493,6 +574,13 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * Cập nhật thông tin nhân viên
+     * 
+     * @param Request $request
+     * @param int $id
+     * @return \Illuminate\Http\Response
+     */
     public function updateStaff(Request $request, $id)
     {
         try {
@@ -501,7 +589,6 @@ class AdminController extends Controller
                 'email' => 'required|email|unique:users,email,' . $id . ',id_user',
                 'phone' => 'required|string',
                 'address' => 'required|string',
-                'role' => 'required|in:2,3',
             ]);
 
             $user = User::findOrFail($id);
@@ -510,18 +597,22 @@ class AdminController extends Controller
                 'email' => $validated['email'],
                 'phone' => $validated['phone'],
                 'address' => $validated['address'],
-                'id_role' => $validated['role'],
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Cập nhật thông tin nhân viên thành công!'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi xác thực: ' . implode(', ', $e->validator->errors()->all())
+            ], 422); // HTTP 422 Unprocessable Entity
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
-            ], 500);
+            ], 500); // HTTP 500 Internal Server Error
         }
     }
 
@@ -628,22 +719,89 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * Lấy thông tin thành viên cho form chỉnh sửa
+     * 
+     * @param int $id
+     * @return \Illuminate\Http\Response
+     */
+    public function getMemberInfo($id)
+    {
+        try {
+            $member = User::where('id_role', 4)->findOrFail($id);
+            return response()->json($member);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy thành viên: ' . $e->getMessage()
+            ], 404);
+        }
+    }
+
     public function updateMemberStatus(Request $request, $userId)
     {
         try {
             $validated = $request->validate([
-                'status' => 'required|in:0,1'
+                'status' => 'required|in:active,inactive'
             ]);
 
             $user = User::where('id_role', 4)->findOrFail($userId);
-            $user->status = $validated['status'];
+            
+            // Map giá trị 'inactive' từ request sang 'temporary_locked' trong database
+            $status = $validated['status'] === 'inactive' ? 'temporary_locked' : $validated['status'];
+            $user->status = $status;
             $user->save();
 
-            $statusText = $validated['status'] == 1 ? 'kích hoạt' : 'vô hiệu hóa';
+            $statusText = $validated['status'] == 'active' ? 'kích hoạt' : 'vô hiệu hóa';
             return response()->json([
                 'success' => true,
                 'message' => "Đã $statusText tài khoản thành viên thành công!"
             ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Quản lý trạng thái tài khoản người dùng
+     * 
+     * @param Request $request
+     * @param \App\Models\User|int $user
+     * @return \Illuminate\Http\Response
+     */
+    public function manageAccountStatus(Request $request, $user)
+    {
+        try {
+            // Kiểm tra nếu $user không phải là instance của User, lấy user từ ID
+            if (!($user instanceof \App\Models\User)) {
+                $user = User::findOrFail($user);
+            }
+            
+            $validated = $request->validate([
+                'action' => 'required|in:unlock,delete',
+                'status' => 'required|in:active,temporary_locked,permanent_locked'
+            ]);
+            
+            if ($validated['action'] === 'unlock') {
+                // Sử dụng trực tiếp giá trị status chuỗi
+                $user->status = $validated['status'];
+                $user->save();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Đã cập nhật trạng thái tài khoản thành công'
+                ]);
+            } else {
+                $user->delete();
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Đã xóa tài khoản thành công'
+                ]);
+            }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

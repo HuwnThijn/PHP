@@ -1,6 +1,6 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
-@section('title', 'Quản lý thuốc')
+@section('title', 'Quản lý Thuốc')
 
 @section('page-title', 'Quản lý thuốc')
 
@@ -185,9 +185,10 @@
             const button = event.relatedTarget;
             const medicine = JSON.parse(button.getAttribute('data-medicine'));
             
-            // Cập nhật action của form
+            // Cập nhật action của form và lưu id vào data-id
             const form = document.getElementById('editMedicineForm');
             form.action = `/admin/medicine/${medicine.id}`;
+            form.setAttribute('data-id', medicine.id);
             
             // Điền thông tin vào form
             document.getElementById('edit_name').value = medicine.name;
@@ -205,14 +206,10 @@
             e.preventDefault();
             
             const formData = new FormData(this);
-            const medicineId = this.getAttribute('data-id');
+            const action = this.action;
             
-            fetch(`/admin/medicine/${medicineId}`, {
+            fetch(action, {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    'Accept': 'application/json'
-                },
                 body: formData
             })
             .then(response => response.json())

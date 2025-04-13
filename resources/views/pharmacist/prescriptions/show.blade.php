@@ -2,7 +2,7 @@
 
 @section('title', 'Chi tiết đơn thuốc')
 
-@section('page-title', 'Chi tiết đơn thuốc #' . $prescription->id)
+@section('page-title', 'Chi tiết đơn thuốc #' . $prescription->id_prescription)
 
 @section('content')
 <div class="row">
@@ -39,6 +39,27 @@
                     </div>
                 @endif
 
+                @if (isset($errors) && $errors->any())
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                @endif
+
+                {{-- Ẩn thông báo lỗi SQL --}}
+                @php
+                    // Xóa thông báo lỗi SQLSTATE[01000] từ session
+                    if (session()->has('sqlError')) {
+                        session()->forget('sqlError');
+                    }
+                @endphp
+
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <h5 class="font-weight-bold">Thông tin bệnh nhân</h5>
@@ -62,7 +83,7 @@
                         <thead>
                             <tr>
                                 <th>Tên thuốc</th>
-                                <th>Liều lượng</th>
+                                <th>Liều dùng</th>
                                 <th>Số lượng</th>
                                 <th>Đơn giá</th>
                                 <th>Thành tiền</th>
@@ -70,6 +91,7 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php $total = 0; @endphp
                             @foreach($prescription->items as $item)
                             <tr>
                                 <td>{{ $item->medicine->name }}</td>
@@ -77,11 +99,12 @@
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ number_format($item->price) }} VNĐ</td>
                                 <td>{{ number_format($item->price * $item->quantity) }} VNĐ</td>
+                                @php $total += $item->price * $item->quantity; @endphp
                                 <td>
                                     @if($item->medicine->stock_quantity >= $item->quantity)
-                                        <span class="badge badge-success">{{ $item->medicine->stock_quantity }}</span>
+                                        <span class="badge badge-success text-black">{{ $item->medicine->stock_quantity }}</span>
                                     @else
-                                        <span class="badge badge-danger">{{ $item->medicine->stock_quantity }} (Thiếu)</span>
+                                        <span class="badge badge-danger text-black">{{ $item->medicine->stock_quantity }} (Thiếu)</span>
                                     @endif
                                 </td>
                             </tr>
@@ -90,7 +113,7 @@
                         <tfoot>
                             <tr>
                                 <td colspan="4" class="text-right font-weight-bold">Tổng cộng:</td>
-                                <td colspan="2" class="font-weight-bold">{{ number_format($prescription->total_amount) }} VNĐ</td>
+                                <td colspan="2" class="font-weight-bold">{{ number_format($total) }} VNĐ</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -106,6 +129,20 @@
                     <h5 class="font-weight-bold">Thông tin xử lý</h5>
                     <p><strong>Người xử lý:</strong> {{ $prescription->processedBy->name ?? 'N/A' }}</p>
                     <p><strong>Thời gian xử lý:</strong> {{ $prescription->processed_at ? $prescription->processed_at->format('d/m/Y H:i') : 'N/A' }}</p>
+                    <p><strong>Phương thức thanh toán:</strong> 
+                        @if($prescription->payment_method == 'cash')
+                            <span class="badge badge-success text-black">Tiền mặt</span>
+                        @elseif($prescription->payment_method == 'card')
+                            <span class="badge badge-info text-black">Thẻ</span>
+                        @elseif($prescription->payment_method == 'transfer')
+                            <span class="badge badge-primary text-black">Chuyển khoản</span>
+                        @else
+                            <span class="badge badge-secondary text-black">{{ $prescription->payment_method ?? 'N/A' }}</span>
+                        @endif
+                    </p>
+                    @if($prescription->payment_method == 'card' && $prescription->payment_id)
+                    <p><strong>Mã giao dịch:</strong> {{ $prescription->payment_id }}</p>
+                    @endif
                 </div>
                 @endif
             </div>
@@ -119,18 +156,28 @@
                 <h6 class="m-0 font-weight-bold text-primary">Xử lý đơn thuốc</h6>
             </div>
             <div class="card-body">
-                <form action="{{ route('pharmacist.prescriptions.process', $prescription->id) }}" method="POST">
+                <form action="{{ route('pharmacist.prescriptions.process', $prescription->id_prescription) }}" method="POST" id="processForm">
                     @csrf
                     <div class="form-group">
                         <label for="payment_method">Phương thức thanh toán</label>
-                        <select class="form-control" id="payment_method" name="payment_method" required>
+                        <select class="form-control" id="payment_method" name="payment_method" required onchange="togglePaymentMethod()">
                             <option value="cash">Tiền mặt</option>
                             <option value="card">Thẻ</option>
                             <option value="transfer">Chuyển khoản</option>
                         </select>
                     </div>
                     
-                    <button type="submit" class="btn btn-success btn-block">
+                    <div id="cardPaymentSection" style="display: none;">
+                        <div class="form-group">
+                            <label for="card-element">Thông tin thẻ</label>
+                            <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;">
+                                <!-- Stripe Element sẽ được chèn vào đây -->
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="submitButton" class="btn btn-success btn-block">
                         <i class="fas fa-check"></i> Xác nhận và xuất thuốc
                     </button>
                 </form>
@@ -143,18 +190,29 @@
                 <h6 class="m-0 font-weight-bold text-primary">Thông tin đơn thuốc</h6>
             </div>
             <div class="card-body">
-                <p><strong>Mã đơn thuốc:</strong> #{{ $prescription->id }}</p>
-                <p><strong>Ngày tạo:</strong> {{ $prescription->created_at->format('d/m/Y H:i') }}</p>
-                <p><strong>Trạng thái:</strong> 
-                    @if($prescription->status == 'pending')
-                        <span class="badge badge-warning">Chờ xử lý</span>
-                    @elseif($prescription->status == 'completed')
-                        <span class="badge badge-success">Đã xử lý</span>
-                    @else
-                        <span class="badge badge-secondary">{{ $prescription->status }}</span>
-                    @endif
-                </p>
-                <p><strong>Tổng tiền:</strong> {{ number_format($prescription->total_amount) }} VNĐ</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Mã đơn thuốc:</strong> #{{ $prescription->id_prescription }}</p>
+                        <p><strong>Ngày tạo:</strong> {{ $prescription->created_at->format('d/m/Y H:i') }}</p>
+                        <p><strong>Trạng thái:</strong> 
+                            @if($prescription->status == 'pending')
+                                <span class="badge badge-warning">Chờ xử lý</span>
+                            @elseif($prescription->status == 'completed')
+                                <span class="badge badge-success">Đã xử lý</span>
+                            @endif
+                        </p>
+                        <p><strong>Tổng tiền:</strong> 
+                            @php
+                                // Tính tổng tiền từ các mục thuốc
+                                $totalAmount = 0;
+                                foreach ($prescription->items as $item) {
+                                    $totalAmount += $item->price * $item->quantity;
+                                }
+                            @endphp
+                            {{ number_format($totalAmount) }} VNĐ
+                        </p>
+                    </div>
+                </div>
                 
                 <div class="mt-3">
                     <a href="{{ route('pharmacist.prescriptions.pending') }}" class="btn btn-secondary btn-sm">
@@ -162,7 +220,7 @@
                     </a>
                     
                     @if($prescription->status == 'completed')
-                    <a href="#" class="btn btn-primary btn-sm" onclick="window.print()">
+                    <a href="{{ route('pharmacist.prescriptions.print', $prescription->id_prescription) }}" class="btn btn-primary btn-sm" target="_blank">
                         <i class="fas fa-print"></i> In đơn thuốc
                     </a>
                     @endif
@@ -171,4 +229,113 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+    @if($prescription->status == 'pending')
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        // Khởi tạo Stripe.js với Public Key
+        const stripe = Stripe('{{ env('STRIPE_KEY') }}');
+        const elements = stripe.elements();
+        
+        // Tạo card Element và thêm vào form
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+        
+        // Xử lý lỗi khi nhập thông tin thẻ
+        cardElement.on('change', ({error}) => {
+            const displayError = document.getElementById('card-errors');
+            if (error) {
+                displayError.textContent = error.message;
+            } else {
+                displayError.textContent = '';
+            }
+        });
+        
+        // Hiển thị/ẩn phần thanh toán thẻ dựa trên phương thức được chọn
+        function togglePaymentMethod() {
+            const paymentMethod = document.getElementById('payment_method').value;
+            const cardPaymentSection = document.getElementById('cardPaymentSection');
+            
+            if (paymentMethod === 'card') {
+                cardPaymentSection.style.display = 'block';
+            } else {
+                cardPaymentSection.style.display = 'none';
+            }
+        }
+        
+        // Xử lý khi nhấn nút thanh toán
+        document.getElementById('submitButton').addEventListener('click', async function(event) {
+            event.preventDefault();
+            
+            const paymentMethod = document.getElementById('payment_method').value;
+            const form = document.getElementById('processForm');
+            
+            if (paymentMethod === 'card') {
+                // Hiển thị loading
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+                
+                try {
+                    // Gọi API tạo intent thanh toán
+                    const response = await fetch('{{ route('pharmacist.prescriptions.payment.intent', $prescription->id_prescription) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Không thể tạo phiên thanh toán');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Hiển thị thông tin thanh toán USD nếu có
+                    if (data.amount_usd) {
+                        document.getElementById('card-errors').innerHTML = `<div class="alert alert-info mb-2">Thanh toán ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(data.amount_vnd)} ≈ ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(data.amount_usd/100)}</div>`;
+                    }
+                    
+                    // Xác nhận thanh toán với Stripe
+                    const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
+                        payment_method: {
+                            card: cardElement
+                        }
+                    });
+                    
+                    if (error) {
+                        // Hiển thị lỗi từ Stripe
+                        console.error('Stripe error:', error);
+                        document.getElementById('card-errors').textContent = error.message || 'Lỗi thanh toán thẻ';
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-check"></i> Xác nhận và xuất thuốc';
+                    } else if (paymentIntent.status === 'succeeded') {
+                        // Thêm ID thanh toán vào form và submit
+                        const hiddenInput = document.createElement('input');
+                        hiddenInput.setAttribute('type', 'hidden');
+                        hiddenInput.setAttribute('name', 'stripe_payment_id');
+                        hiddenInput.setAttribute('value', paymentIntent.id);
+                        form.appendChild(hiddenInput);
+                        
+                        form.submit();
+                    }
+                } catch (error) {
+                    console.error('Error during payment:', error);
+                    document.getElementById('card-errors').textContent = 'Có lỗi xảy ra trong quá trình thanh toán: ' + error.message;
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-check"></i> Xác nhận và xuất thuốc';
+                }
+            } else {
+                // Nếu không phải thanh toán bằng thẻ, submit form bình thường
+                form.submit();
+            }
+        });
+        
+        // Khởi tạo hiển thị khi tải trang
+        togglePaymentMethod();
+    </script>
+    @endif
 @endsection 

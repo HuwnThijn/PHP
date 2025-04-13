@@ -1,89 +1,176 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="Đăng nhập hệ thống dược sĩ - Phòng khám da liễu">
-    <meta name="author" content="Phòng khám da liễu">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
-    <title>Đăng nhập - Hệ thống dược sĩ</title>
-
-    <!-- Custom fonts -->
-    <link href="/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <title>Đăng nhập - Hệ thống Dược sĩ</title>
+    
+    <!-- Custom fonts for this template-->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
-
-    <!-- Custom styles -->
-    <link href="/css/sb-admin-2.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
     <style>
-        .bg-login-image {
-            background: url('/img/pharmacy-login.jpg');
-            background-position: center;
+        :root {
+            --primary: #4e73df;
+            --success: #1cc88a;
+            --info: #36b9cc;
+            --warning: #f6c23e;
+            --danger: #e74a3b;
+        }
+        
+        body {
+            background-color: #1cc88a;
+            background-image: linear-gradient(135deg, #1cc88a 0%, #13855e 100%);
             background-size: cover;
+            font-family: 'Nunito', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 1rem;
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .login-heading {
+            font-weight: 700;
+            color: #1cc88a;
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-control {
+            border-radius: 10rem;
+            padding: 1.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-login {
+            font-size: 0.9rem;
+            letter-spacing: 0.05rem;
+            padding: 0.75rem 1rem;
+            border-radius: 10rem;
+            background-color: #1cc88a;
+            border-color: #1cc88a;
+            font-weight: bold;
+        }
+        
+        .btn-login:hover {
+            background-color: #13855e;
+            border-color: #13855e;
+        }
+        
+        .logo-wrapper {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .logo-text {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #1cc88a;
+            text-transform: uppercase;
+            letter-spacing: 0.05rem;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #5a5c69;
+        }
+        
+        .form-floating > .form-control {
+            padding-top: 1.625rem;
+            padding-bottom: 0.625rem;
+        }
+        
+        .form-floating > label {
+            padding: 1rem 0.75rem;
+        }
+        
+        .alert {
+            border-radius: 0.35rem;
+            border-left: 0.25rem solid #e74a3b;
         }
     </style>
 </head>
-
-<body class="bg-gradient-success">
+<body>
     <div class="container">
-        <!-- Outer Row -->
         <div class="row justify-content-center">
             <div class="col-xl-10 col-lg-12 col-md-9">
                 <div class="card o-hidden border-0 shadow-lg my-5">
                     <div class="card-body p-0">
-                        <!-- Nested Row within Card Body -->
                         <div class="row">
-                            <div class="col-lg-6 d-none d-lg-block bg-login-image"></div>
+                            <div class="col-lg-6 d-none d-lg-block bg-login-image" style="background: url('https://source.unsplash.com/NRQV-hBF10M/600x800'); background-position: center; background-size: cover;"></div>
                             <div class="col-lg-6">
                                 <div class="p-5">
-                                    <div class="text-center">
-                                        <h1 class="h4 text-gray-900 mb-4">Đăng nhập hệ thống dược sĩ</h1>
+                                    <div class="logo-wrapper">
+                                        <div class="logo-text mb-2">DƯỢC SĨ</div>
+                                        <div class="text-center">
+                                            <i class="fas fa-pills fa-3x text-success mb-3"></i>
+                                        </div>
                                     </div>
                                     
+                                    <div class="text-center">
+                                        <h1 class="h4 text-gray-900 login-heading mb-4">Đăng nhập hệ thống</h1>
+                                    </div>
+                                    
+                                    @if($errors->has('email'))
+                                        <div class="alert alert-danger mb-4 font-weight-bold">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            {{ $errors->first('email') }}
+                                        </div>
+                                    @endif
+
+                                    @if($errors->has('password'))
+                                        <div class="alert alert-danger mb-4 font-weight-bold">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            {{ $errors->first('password') }}
+                                        </div>
+                                    @endif
+                                    
                                     @if(session('error'))
-                                        <div class="alert alert-danger">
+                                        <div class="alert alert-danger mb-4 font-weight-bold">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
                                             {{ session('error') }}
                                         </div>
                                     @endif
                                     
                                     <form class="user" method="POST" action="{{ route('pharmacist.login.submit') }}">
                                         @csrf
-                                        <div class="form-group">
-                                            <input type="email" class="form-control form-control-user @error('email') is-invalid @enderror"
-                                                id="email" name="email" aria-describedby="emailHelp"
-                                                placeholder="Nhập địa chỉ email..." value="{{ old('email') }}" required autofocus>
-                                            @error('email')
-                                                <span class="invalid-feedback" role="alert">
-                                                    <strong>{{ $message }}</strong>
-                                                </span>
-                                            @enderror
+                                        <div class="form-floating mb-4">
+                                            <input type="email" class="form-control @error('email') is-invalid @enderror" 
+                                                id="email" name="email" value="{{ old('email') }}" placeholder="Nhập địa chỉ email" required autofocus>
+                                            <label for="email">Email</label>
                                         </div>
-                                        <div class="form-group">
-                                            <input type="password" class="form-control form-control-user @error('password') is-invalid @enderror"
-                                                id="password" name="password" placeholder="Mật khẩu" required>
-                                            @error('password')
-                                                <span class="invalid-feedback" role="alert">
-                                                    <strong>{{ $message }}</strong>
-                                                </span>
-                                            @enderror
+                                        
+                                        <div class="form-floating mb-4">
+                                            <input type="password" class="form-control @error('password') is-invalid @enderror" 
+                                                id="password" name="password" placeholder="Nhập mật khẩu" required>
+                                            <label for="password">Mật khẩu</label>
                                         </div>
-                                        <div class="form-group">
-                                            <div class="custom-control custom-checkbox small">
-                                                <input type="checkbox" class="custom-control-input" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
-                                                <label class="custom-control-label" for="remember">Ghi nhớ đăng nhập</label>
-                                            </div>
+                                        
+                                        <div class="form-check mb-4">
+                                            <input type="checkbox" class="form-check-input" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="remember">Ghi nhớ đăng nhập</label>
                                         </div>
-                                        <button type="submit" class="btn btn-success btn-user btn-block">
-                                            Đăng nhập
+                                        
+                                        <button type="submit" class="btn btn-success btn-login btn-user w-100">
+                                            <i class="fas fa-sign-in-alt me-2"></i> Đăng nhập
                                         </button>
                                     </form>
+                                    
                                     <hr>
-                                    <div class="text-center">
-                                        <p class="small">Nếu bạn quên mật khẩu, vui lòng liên hệ với quản trị viên.</p>
-                                    </div>
-                                    <div class="text-center">
-                                        <a class="small" href="{{ route('login') }}">Quay lại trang đăng nhập chính</a>
+                                    
+                                    <div class="text-center mt-4">
+                                        <a class="small text-decoration-none" href="#"><i class="fas fa-key me-1"></i> Quên mật khẩu?</a>
                                     </div>
                                 </div>
                             </div>
@@ -95,13 +182,7 @@
     </div>
 
     <!-- Bootstrap core JavaScript-->
-    <script src="/vendor/jquery/jquery.min.js"></script>
-    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Core plugin JavaScript-->
-    <script src="/vendor/jquery-easing/jquery.easing.min.js"></script>
-
-    <!-- Custom scripts for all pages-->
-    <script src="/js/sb-admin-2.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html> 

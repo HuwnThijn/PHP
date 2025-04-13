@@ -24,6 +24,14 @@ use App\Models\Service;
 use App\Models\Appointment;
 use App\Models\CartItem;
 use App\Models\Review;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Ship;
+use App\Models\Transaction;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Stripe\Stripe;
+use Stripe\PaymentIntent;
 
 class UserController extends Controller
 {
@@ -215,7 +223,7 @@ class UserController extends Controller
     {
         // Nếu không có ID được cung cấp, chuyển hướng về trang danh sách bác sĩ
         if (!$id) {
-            return redirect()->route('doctor');
+            return redirect()->route('doctors');
         }
         
         // Tìm bác sĩ theo ID
@@ -225,7 +233,7 @@ class UserController extends Controller
         
         // Nếu không tìm thấy bác sĩ, chuyển hướng về trang danh sách bác sĩ
         if (!$doctor) {
-            return redirect()->route('doctor')->with('error', 'Không tìm thấy thông tin bác sĩ.');
+            return redirect()->route('doctors')->with('error', 'Không tìm thấy thông tin bác sĩ.');
         }
         
         return view('user.theme.doctor-single', [
@@ -681,8 +689,23 @@ class UserController extends Controller
         // For now, we'll retrieve cart items from session
         $cartItems = session()->get('cart', []);
         
+        // Định nghĩa biến shipping và tax để tránh lỗi undefined variable
+        $shipping = 30000;
+        $tax = 2000;
+        
+        // Tính tổng tiền hàng
+        $subtotal = 0;
+        if (count($cartItems) > 0) {
+            foreach ($cartItems as $item) {
+                $subtotal += $item['price'] * $item['quantity'];
+            }
+        }
+        
         return view('user.theme.cart', [
-            'cartItems' => $cartItems
+            'cartItems' => $cartItems,
+            'shipping' => $shipping,
+            'tax' => $tax,
+            'subtotal' => $subtotal
         ]);
     }
     
@@ -796,14 +819,197 @@ class UserController extends Controller
     
     public function showOrders()
     {
-        // Get the authenticated user
+        // Kiểm tra đăng nhập
+        if (!Auth::check()) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để xem lịch sử đơn hàng');
+        }
+
+        // Lấy ID người dùng hiện tại
+        $userId = Auth::id();
+        
+        // Lấy danh sách đơn hàng của người dùng
+        $orders = Order::where('id_user', $userId)
+            ->orderBy('created_at', 'desc')
+            ->with(['orderItems', 'orderItems.cosmetic', 'ship'])
+            ->get();
+        
+        // Xử lý dữ liệu cho mỗi đơn hàng
+        foreach ($orders as $order) {
+            // Đếm số lượng sản phẩm trong đơn hàng
+            $order->item_count = $order->orderItems->sum('quantity');
+            
+            // Tạo order_number từ id_order (VD: ORD-0001)
+            $order->order_number = 'ORD-' . str_pad($order->id_order, 4, '0', STR_PAD_LEFT);
+            
+            // Tính tổng giá trị đơn hàng (nếu chưa có trong DB)
+            $order->total = $order->total_price;
+        }
+        
+        return view('user.theme.orders', compact('orders'));
+    }
+    
+    public function checkout()
+    {
+        // Kiểm tra đăng nhập
+        if (!Auth::check()) {
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để tiếp tục thanh toán');
+        }
+        
         $user = Auth::user();
+        $cart = session()->get('cart', []);
         
-        // In a real implementation, you would fetch the user's orders from the database
-        // For now, we'll just return the view without order data
-        // You can modify this to fetch orders from your database
+        // Kiểm tra giỏ hàng rỗng
+        if (count($cart) == 0) {
+            return redirect()->route('cart')->with('error', 'Giỏ hàng của bạn đang trống');
+        }
         
-        return view('user.theme.orders');
+        $subtotal = $this->calculateSubtotal($cart);
+        $shipping = 30000;
+        $tax = 2000;
+        $total = $subtotal + $shipping + $tax;
+        
+        return view('user.theme.checkout', [
+            'user' => $user,
+            'cart' => $cart,
+            'subtotal' => $subtotal,
+            'shipping' => $shipping,
+            'tax' => $tax,
+            'total' => $total
+        ]);
+    }
+    
+    public function placeOrder(Request $request)
+    {
+        // Kiểm tra đăng nhập
+        if (!Auth::check()) {
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Vui lòng đăng nhập để đặt hàng']);
+            }
+            return redirect()->route('login')->with('error', 'Vui lòng đăng nhập để đặt hàng');
+        }
+        
+        Log::info('Order request data: ' . json_encode($request->all()));
+        
+        // Validate request
+        $validator = Validator::make($request->all(), [
+            'payment_method' => 'required|in:cash,credit_card,bank_transfer',
+            'address' => 'required|string|max:255',
+            'phone' => 'required|string|max:15',
+        ]);
+        
+        if ($validator->fails()) {
+            Log::error('Validation failed: ' . json_encode($validator->errors()->toArray()));
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+        
+        $cart = session()->get('cart', []);
+        
+        // Kiểm tra giỏ hàng rỗng
+        if (count($cart) == 0) {
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Giỏ hàng của bạn đang trống']);
+            }
+            return redirect()->route('cart')->with('error', 'Giỏ hàng của bạn đang trống');
+        }
+        
+        $user = Auth::user();
+        $subtotal = $this->calculateSubtotal($cart);
+        $shipping = 30000;
+        $tax = 2000;
+        $total = $subtotal + $shipping + $tax;
+        
+        DB::beginTransaction();
+        
+        try {
+            // Xác định trạng thái thanh toán dựa trên phương thức thanh toán
+            $paymentStatus = 'pending';
+            if ($request->payment_method === 'credit_card') {
+                $paymentStatus = 'paid'; // Đánh dấu đã thanh toán nếu thanh toán bằng thẻ
+            }
+            
+            // Tạo đơn hàng mới
+            $orderData = [
+                'id_user' => $user->id_user,
+                'total_price' => $total,
+                'payment_method' => $request->payment_method,
+                'payment_status' => $paymentStatus, // Thêm trạng thái thanh toán
+                'status' => 'pending'
+            ];
+            
+            Log::info('Creating order with data: ' . json_encode($orderData));
+            $order = Order::create($orderData);
+            Log::info('Order created with ID: ' . $order->id_order);
+            
+            // Thêm các mục đơn hàng
+            foreach ($cart as $item) {
+                OrderItem::create([
+                    'id_order' => $order->id_order,
+                    'id_cosmetic' => $item['id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['price']
+                ]);
+            }
+            Log::info('Order items created successfully');
+            
+            // Thêm thông tin vận chuyển
+            Ship::create([
+                'id_order' => $order->id_order,
+                'address' => $request->address,
+                'distance' => 0, // Tính khoảng cách sau
+                'shipping_fee' => $shipping,
+                'status' => 'pending'
+            ]);
+            Log::info('Shipping info created successfully');
+            
+            // Tạo giao dịch
+            Transaction::create([
+                'id_user' => $user->id_user,
+                'id_order' => $order->id_order,
+                'amount' => $total,
+                'points_earned' => floor($subtotal / 10000), // 1 điểm cho mỗi 10.000 VND
+                'points_used' => 0,
+                'payment_method' => $request->payment_method,
+                'transaction_date' => now(),
+                'final_amount' => $total
+            ]);
+            Log::info('Transaction created successfully');
+            
+            // Xóa giỏ hàng
+            session()->forget('cart');
+            Log::info('Cart cleared from session');
+            
+            // Lưu thông tin đơn hàng vào session để hiển thị ở trang xác nhận
+            session(['order' => $order->load('orderItems.cosmetic', 'ship')]);
+            Log::info('Order saved to session');
+            
+            DB::commit();
+            Log::info('Order transaction committed successfully');
+            
+            // Trả về response tùy thuộc vào loại request
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Đặt hàng thành công! Cảm ơn bạn đã mua sắm.',
+                    'redirect' => route('confirmation')
+                ]);
+            }
+            
+            // Chuyển hướng đến trang xác nhận đặt hàng thành công
+            return redirect()->route('confirmation')->with('success', 'Đặt hàng thành công! Cảm ơn bạn đã mua sắm.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Lỗi đặt hàng: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Đã xảy ra lỗi khi xử lý đơn hàng: ' . $e->getMessage()]);
+            }
+            
+            return redirect()->route('cart')->with('error', 'Đã xảy ra lỗi khi xử lý đơn hàng. Vui lòng thử lại sau.');
+        }
     }
 
     /**
@@ -910,5 +1116,173 @@ class UserController extends Controller
         $product->save();
         
         return $product->rating;
+    }
+
+    /**
+     * Lấy thông tin chi tiết sản phẩm của một đơn hàng
+     */
+    public function getOrderItems(Request $request)
+    {
+        // Kiểm tra đăng nhập
+        if (!Auth::check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+        
+        // Validate request
+        $request->validate([
+            'id' => 'required|exists:orders,id_order'
+        ]);
+        
+        // Kiểm tra đơn hàng thuộc về người dùng hiện tại
+        $order = Order::where('id_order', $request->id)
+            ->where('id_user', Auth::id())
+            ->with(['orderItems.cosmetic', 'ship'])
+            ->first();
+        
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+        }
+        
+        // Chuẩn bị dữ liệu để trả về
+        $items = [];
+        $subtotal = 0;
+        
+        foreach ($order->orderItems as $item) {
+            $items[] = [
+                'product_name' => $item->cosmetic->name,
+                'unit_price' => $item->unit_price,
+                'quantity' => $item->quantity,
+                'total' => $item->unit_price * $item->quantity
+            ];
+            
+            $subtotal += $item->unit_price * $item->quantity;
+        }
+        
+        // Lấy thông tin shipping_fee từ bảng ships
+        $shippingFee = $order->ship ? $order->ship->shipping_fee : 30000;
+        $tax = 2000; // Giá trị cố định
+        
+        return response()->json([
+            'success' => true,
+            'items' => $items,
+            'subtotal' => $subtotal,
+            'shipping_fee' => $shippingFee,
+            'tax' => $tax,
+            'total' => $order->total_price
+        ]);
+    }
+
+    /**
+     * Hủy đơn hàng
+     */
+    public function cancelOrder(Request $request)
+    {
+        // Kiểm tra đăng nhập
+        if (!Auth::check()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+        
+        // Validate request
+        $request->validate([
+            'id' => 'required|exists:orders,id_order'
+        ]);
+        
+        // Tìm đơn hàng thuộc về người dùng hiện tại
+        $order = Order::where('id_order', $request->id)
+            ->where('id_user', Auth::id())
+            ->first();
+        
+        if (!$order) {
+            return response()->json(['success' => false, 'message' => 'Đơn hàng không tồn tại'], 404);
+        }
+        
+        // Chỉ cho phép hủy đơn hàng ở trạng thái pending hoặc confirmed
+        if (!in_array($order->status, ['pending', 'confirmed'])) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Không thể hủy đơn hàng này do đơn hàng đã được xử lý'
+            ], 400);
+        }
+        
+        // Cập nhật trạng thái đơn hàng thành cancelled
+        $order->status = 'cancelled';
+        $order->save();
+        
+        // Cập nhật trạng thái vận chuyển nếu có
+        if ($order->ship) {
+            $order->ship->status = 'failed';
+            $order->ship->save();
+        }
+        
+        // Ghi log
+        Log::info('Đơn hàng ' . $order->id_order . ' đã được hủy bởi người dùng ' . Auth::id());
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Đơn hàng đã được hủy thành công'
+        ]);
+    }
+
+    public function createPaymentIntent(Request $request)
+    {
+        try {
+            // Validate request
+            $request->validate([
+                'amount' => 'required|numeric|min:1000',
+                'currency' => 'required|string|in:vnd,usd'
+            ]);
+
+            // Get total amount in VND
+            $amount = $request->amount;
+            
+            // Convert VND to USD cents if currency is VND (Stripe requires USD in cents)
+            if ($request->currency === 'vnd') {
+                // Approximate exchange rate: 1 USD = 24,000 VND
+                // Convert to USD
+                $amountUsd = $amount / 24000;
+                // Convert to cents
+                $amountCents = round($amountUsd * 100);
+            } else {
+                // If already in USD, just convert to cents
+                $amountCents = round($amount * 100);
+            }
+            
+            // Make sure we have at least the minimum amount ($0.50 USD in cents)
+            $amountCents = max($amountCents, 50);
+            
+            // Initialize Stripe
+            \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
+            
+            // Create a PaymentIntent
+            $paymentIntent = \Stripe\PaymentIntent::create([
+                'amount' => $amountCents,
+                'currency' => 'usd', // Always use USD with Stripe
+                'payment_method_types' => ['card'],
+                'description' => 'Order from ' . config('app.name'),
+                'metadata' => [
+                    'original_currency' => $request->currency,
+                    'original_amount' => $amount,
+                ],
+            ]);
+            
+            // Return the client secret
+            return response()->json([
+                'success' => true,
+                'client_secret' => $paymentIntent->client_secret,
+                'amount_usd' => number_format($amountCents / 100, 2),
+                'amount_vnd' => number_format($amount, 0, '.', ','),
+            ]);
+            
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Stripe API Error: ' . $e->getMessage(),
+            ], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

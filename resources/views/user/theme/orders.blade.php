@@ -1,6 +1,6 @@
 @extends('user.theme.auth-layout')
 
-@section('title', 'Order History')
+@section('title', 'Lịch sử đơn hàng')
 
 @section('content')
 <section class="page-title bg-1">
@@ -9,8 +9,8 @@
     <div class="row">
       <div class="col-md-12">
         <div class="block text-center">
-          <span class="text-white">Order History</span>
-          <h1 class="text-capitalize mb-5 text-lg">My Orders</h1>
+          <span class="text-white">Lịch sử đơn hàng</span>
+          <h1 class="text-capitalize mb-5 text-lg">Đơn hàng của tôi</h1>
         </div>
       </div>
     </div>
@@ -41,27 +41,27 @@
 
         <div class="card shadow">
           <div class="card-body">
-            <h4 class="mb-4">My Orders</h4>
+            <h4 class="mb-4">Đơn hàng của tôi</h4>
             
             <!-- Filters and search -->
             <div class="row mb-4">
               <div class="col-md-6">
                 <div class="form-group">
-                  <label for="status-filter">Filter by Status</label>
+                  <label for="status-filter">Lọc theo trạng thái</label>
                   <select class="form-control" id="status-filter">
-                    <option value="all">All Orders</option>
-                    <option value="pending">Pending</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="all">Tất cả đơn hàng</option>
+                    <option value="pending">Chờ xử lý</option>
+                    <option value="confirmed">Đã xác nhận</option>
+                    <option value="shipped">Đang vận chuyển</option>
+                    <option value="delivered">Đã giao hàng</option>
+                    <option value="cancelled">Đã hủy</option>
                   </select>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="form-group">
-                  <label for="order-search">Search Orders</label>
-                  <input type="text" class="form-control" id="order-search" placeholder="Search by Order ID or Product">
+                  <label for="order-search">Tìm kiếm đơn hàng</label>
+                  <input type="text" class="form-control" id="order-search" placeholder="Tìm theo mã đơn hàng hoặc sản phẩm">
                 </div>
               </div>
             </div>
@@ -71,50 +71,76 @@
               <table class="table table-hover">
                 <thead>
                   <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                    <th>Mã đơn hàng</th>
+                    <th>Ngày đặt</th>
+                    <th>Số lượng</th>
+                    <th>Tổng tiền</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   <!-- No orders state -->
-                  <tr id="no-orders" class="@if(isset($orders) && count($orders) > 0) d-none @endif">
+                  @if(!isset($orders) || count($orders) == 0)
+                  <tr id="no-orders">
                     <td colspan="6" class="text-center py-4">
                       <div class="empty-orders-container">
                         <i class="icofont-file-document" style="font-size: 3rem; color: #e9ecef;"></i>
-                        <p class="mt-3 mb-0">You haven't placed any orders yet</p>
-                        <a href="{{ route('store') }}" class="btn btn-main-2 btn-sm mt-3">Shop Now</a>
+                        <p class="mt-3 mb-0">Bạn chưa có đơn hàng nào</p>
+                        <a href="{{ route('store') }}" class="btn btn-main-2 btn-sm mt-3">Mua sắm ngay</a>
                       </div>
                     </td>
                   </tr>
-                  
-                  <!-- Sample orders (these would be populated from controller) -->
-                  @if(isset($orders) && count($orders) > 0)
+                  @else
                     @foreach($orders as $order)
-                    <tr>
+                    <tr class="order-row" data-status="{{ $order->status }}">
                       <td>
                         <span class="font-weight-bold">{{ $order->order_number }}</span>
                       </td>
-                      <td>{{ $order->created_at->format('M d, Y') }}</td>
-                      <td>{{ $order->item_count }} items</td>
-                      <td>${{ number_format($order->total, 2) }}</td>
+                      <td>{{ \Carbon\Carbon::parse($order->created_at)->format('d/m/Y') }}</td>
+                      <td>{{ $order->item_count }} sản phẩm</td>
+                      <td>{{ number_format($order->total, 0, ',', '.') }}đ</td>
                       <td>
                         <span class="badge 
                           @if($order->status == 'delivered') badge-success
                           @elseif($order->status == 'pending') badge-warning
                           @elseif($order->status == 'cancelled') badge-danger
-                          @elseif($order->status == 'processing') badge-info
+                          @elseif($order->status == 'confirmed') badge-info
                           @elseif($order->status == 'shipped') badge-primary
                           @endif">
-                          {{ ucfirst($order->status) }}
+                          @if($order->status == 'pending') Chờ xử lý
+                          @elseif($order->status == 'confirmed') Đã xác nhận
+                          @elseif($order->status == 'shipped') Đang vận chuyển
+                          @elseif($order->status == 'delivered') Đã giao hàng
+                          @elseif($order->status == 'cancelled') Đã hủy
+                          @else {{ ucfirst($order->status) }}
+                          @endif
                         </span>
                       </td>
                       <td>
-                        <button class="btn btn-sm btn-primary view-order-btn" data-order-id="{{ $order->id }}">
-                          <i class="icofont-eye-alt mr-1"></i> View Details
+                        <div class="order-payment-status">
+                          <span class="label">Trạng thái thanh toán:</span>
+                          @if($order->payment_status == 'paid')
+                            <span class="badge badge-success">Đã thanh toán</span>
+                          @elseif($order->payment_status == 'pending')
+                            <span class="badge badge-warning">Chờ thanh toán</span>
+                          @else
+                            <span class="badge badge-danger">Thanh toán thất bại</span>
+                          @endif
+                        </div>
+                      </td>
+                      <td>
+                        <button class="btn btn-sm btn-primary view-order-btn" 
+                          data-toggle="modal" 
+                          data-target="#order-details-modal" 
+                          data-order-id="{{ $order->id_order }}"
+                          data-order-number="{{ $order->order_number }}"
+                          data-order-date="{{ \Carbon\Carbon::parse($order->created_at)->format('d/m/Y H:i') }}"
+                          data-order-status="{{ $order->status }}"
+                          data-payment-method="{{ $order->payment_method }}"
+                          data-shipping-address="{{ $order->ship ? $order->ship->address : 'N/A' }}"
+                          data-order-total="{{ number_format($order->total, 0, ',', '.') }}đ">
+                          <i class="icofont-eye-alt mr-1"></i> Xem chi tiết
                         </button>
                       </td>
                     </tr>
@@ -123,13 +149,6 @@
                 </tbody>
               </table>
             </div>
-            
-            <!-- Pagination -->
-            @if(isset($orders) && $orders->hasPages())
-            <div class="d-flex justify-content-center mt-4">
-              {{ $orders->links() }}
-            </div>
-            @endif
           </div>
         </div>
       </div>
@@ -142,7 +161,7 @@
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
+        <h5 class="modal-title" id="orderDetailsModalLabel">Chi tiết đơn hàng</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -152,29 +171,29 @@
         <div class="order-details-container">
           <div class="row">
             <div class="col-md-6">
-              <h6>Order Information</h6>
-              <p><strong>Order ID:</strong> <span id="modal-order-id"></span></p>
-              <p><strong>Date:</strong> <span id="modal-order-date"></span></p>
-              <p><strong>Status:</strong> <span id="modal-order-status"></span></p>
-              <p><strong>Payment Method:</strong> <span id="modal-payment-method"></span></p>
+              <h6>Thông tin đơn hàng</h6>
+              <p><strong>Mã đơn hàng:</strong> <span id="modal-order-number"></span></p>
+              <p><strong>Ngày đặt:</strong> <span id="modal-order-date"></span></p>
+              <p><strong>Trạng thái:</strong> <span id="modal-order-status"></span></p>
+              <p><strong>Phương thức thanh toán:</strong> <span id="modal-payment-method"></span></p>
             </div>
             <div class="col-md-6">
-              <h6>Shipping Address</h6>
+              <h6>Địa chỉ giao hàng</h6>
               <p id="modal-shipping-address"></p>
             </div>
           </div>
           
           <hr>
           
-          <h6>Order Items</h6>
+          <h6>Sản phẩm đã đặt</h6>
           <div class="table-responsive">
             <table class="table table-sm">
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>Price</th>
-                  <th>Quantity</th>
-                  <th>Total</th>
+                  <th>Sản phẩm</th>
+                  <th>Giá</th>
+                  <th>Số lượng</th>
+                  <th>Thành tiền</th>
                 </tr>
               </thead>
               <tbody id="modal-order-items">
@@ -182,37 +201,29 @@
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="3" class="text-right font-weight-bold">Subtotal:</td>
+                  <td colspan="3" class="text-right font-weight-bold">Tạm tính:</td>
                   <td id="modal-subtotal"></td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="text-right font-weight-bold">Shipping:</td>
-                  <td id="modal-shipping"></td>
+                  <td colspan="3" class="text-right font-weight-bold">Phí vận chuyển:</td>
+                  <td id="modal-shipping-fee"></td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="text-right font-weight-bold">Tax:</td>
+                  <td colspan="3" class="text-right font-weight-bold">Thuế:</td>
                   <td id="modal-tax"></td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="text-right font-weight-bold">Total:</td>
+                  <td colspan="3" class="text-right font-weight-bold">Tổng cộng:</td>
                   <td id="modal-total" class="font-weight-bold"></td>
                 </tr>
               </tfoot>
             </table>
           </div>
-          
-          <div id="tracking-info" class="mt-4 d-none">
-            <h6>Tracking Information</h6>
-            <p><strong>Tracking Number:</strong> <span id="modal-tracking-number"></span></p>
-            <p><strong>Carrier:</strong> <span id="modal-carrier"></span></p>
-            <p><strong>Estimated Delivery:</strong> <span id="modal-delivery-date"></span></p>
-          </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="track-order-btn">Track Order</button>
-        <button type="button" class="btn btn-danger" id="cancel-order-btn">Cancel Order</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-danger" id="cancel-order-btn">Hủy đơn hàng</button>
       </div>
     </div>
   </div>
@@ -227,11 +238,10 @@
     $('#order-search').on('keyup', function() {
       const searchTerm = $(this).val().toLowerCase();
       
-      $('tbody tr:not(#no-orders)').each(function() {
-        const orderIdText = $(this).find('td:first-child').text().toLowerCase();
-        const orderContent = $(this).text().toLowerCase();
+      $('.order-row').each(function() {
+        const rowText = $(this).text().toLowerCase();
         
-        if (orderIdText.includes(searchTerm) || orderContent.includes(searchTerm)) {
+        if (rowText.includes(searchTerm)) {
           $(this).show();
         } else {
           $(this).hide();
@@ -246,12 +256,10 @@
       const selectedStatus = $(this).val().toLowerCase();
       
       if (selectedStatus === 'all') {
-        $('tbody tr:not(#no-orders)').show();
+        $('.order-row').show();
       } else {
-        $('tbody tr:not(#no-orders)').each(function() {
-          const statusText = $(this).find('td:nth-child(5) span').text().toLowerCase();
-          
-          if (statusText === selectedStatus) {
+        $('.order-row').each(function() {
+          if ($(this).data('status') === selectedStatus) {
             $(this).show();
           } else {
             $(this).hide();
@@ -262,93 +270,152 @@
       checkVisibleOrders();
     });
     
-    // Check if there are any visible orders
+    // Function to check if any orders are visible
     function checkVisibleOrders() {
-      const visibleOrdersCount = $('tbody tr:not(#no-orders):visible').length;
-      
-      if (visibleOrdersCount === 0) {
-        $('#no-orders').removeClass('d-none').find('p').text('No orders match your search criteria');
+      if ($('.order-row:visible').length === 0) {
+        if ($('#no-orders').length === 0) {
+          $('tbody').append(`
+            <tr id="no-orders-filtered">
+              <td colspan="6" class="text-center py-4">
+                <div class="empty-orders-container">
+                  <i class="icofont-filter" style="font-size: 3rem; color: #e9ecef;"></i>
+                  <p class="mt-3 mb-0">Không tìm thấy đơn hàng nào phù hợp</p>
+                </div>
+              </td>
+            </tr>
+          `);
+        }
       } else {
-        $('#no-orders').addClass('d-none');
+        $('#no-orders-filtered').remove();
       }
     }
     
-    // View order details
+    // View order details functionality
     $('.view-order-btn').on('click', function() {
       const orderId = $(this).data('order-id');
+      const orderNumber = $(this).data('order-number');
+      const orderDate = $(this).data('order-date');
+      const orderStatus = $(this).data('order-status');
+      const paymentMethod = $(this).data('payment-method');
+      const shippingAddress = $(this).data('shipping-address');
       
-      // In a real application, you would fetch the order details from the server
-      // For this demo, we'll populate with sample data
+      // Set basic order information
+      $('#modal-order-number').text(orderNumber);
+      $('#modal-order-date').text(orderDate);
       
-      $('#modal-order-id').text('ORD-' + orderId);
-      $('#modal-order-date').text('March 15, 2023');
-      $('#modal-order-status').text('Shipped');
-      $('#modal-payment-method').text('Credit Card');
-      $('#modal-shipping-address').text('John Doe\n123 Main Street\nApt 4B\nNew York, NY 10001\nUnited States');
-      
-      // Sample order items
-      const orderItems = `
-        <tr>
-          <td>Skin Cleanser</td>
-          <td>$25.00</td>
-          <td>1</td>
-          <td>$25.00</td>
-        </tr>
-        <tr>
-          <td>Moisturizer</td>
-          <td>$35.00</td>
-          <td>1</td>
-          <td>$35.00</td>
-        </tr>
-      `;
-      
-      $('#modal-order-items').html(orderItems);
-      $('#modal-subtotal').text('$60.00');
-      $('#modal-shipping').text('$5.00');
-      $('#modal-tax').text('$6.00');
-      $('#modal-total').text('$71.00');
-      
-      // Show tracking info for shipped orders
-      if ($('#modal-order-status').text() === 'Shipped') {
-        $('#tracking-info').removeClass('d-none');
-        $('#modal-tracking-number').text('TRK123456789');
-        $('#modal-carrier').text('UPS');
-        $('#modal-delivery-date').text('March 21, 2023');
-        $('#track-order-btn').show();
-      } else {
-        $('#tracking-info').addClass('d-none');
-        $('#track-order-btn').hide();
+      // Set status with appropriate translation
+      let statusText = '';
+      switch(orderStatus) {
+        case 'pending': statusText = 'Chờ xử lý'; break;
+        case 'confirmed': statusText = 'Đã xác nhận'; break;
+        case 'shipped': statusText = 'Đang vận chuyển'; break;
+        case 'delivered': statusText = 'Đã giao hàng'; break;
+        case 'cancelled': statusText = 'Đã hủy'; break;
+        default: statusText = orderStatus;
       }
+      $('#modal-order-status').text(statusText);
       
-      // Hide cancel button for delivered or cancelled orders
-      if (['Delivered', 'Cancelled'].includes($('#modal-order-status').text())) {
-        $('#cancel-order-btn').hide();
-      } else {
-        $('#cancel-order-btn').show();
+      // Set payment method with appropriate translation
+      let paymentText = '';
+      switch(paymentMethod) {
+        case 'cash': paymentText = 'Thanh toán khi nhận hàng'; break;
+        case 'credit_card': paymentText = 'Thẻ tín dụng/ghi nợ'; break;
+        case 'bank_transfer': paymentText = 'Chuyển khoản ngân hàng'; break;
+        default: paymentText = paymentMethod;
       }
+      $('#modal-payment-method').text(paymentText);
       
-      $('#order-details-modal').modal('show');
-    });
-    
-    // Track order button
-    $('#track-order-btn').on('click', function() {
-      const trackingNumber = $('#modal-tracking-number').text();
-      const carrier = $('#modal-carrier').text();
+      $('#modal-shipping-address').text(shippingAddress);
       
-      // In a real application, this would redirect to the carrier's tracking page
-      alert(`Tracking order ${trackingNumber} with ${carrier}`);
+      // Load order items via AJAX
+      $.ajax({
+        url: "{{ route('api.order.items') }}",
+        type: "GET",
+        data: { id: orderId },
+        success: function(response) {
+          if (response.success) {
+            // Clear previous items
+            $('#modal-order-items').empty();
+            
+            // Add order items to the table
+            let subtotal = 0;
+            response.items.forEach(function(item) {
+              const itemTotal = item.quantity * item.unit_price;
+              subtotal += itemTotal;
+              
+              $('#modal-order-items').append(`
+                <tr>
+                  <td>${item.product_name}</td>
+                  <td>${formatCurrency(item.unit_price)}</td>
+                  <td>${item.quantity}</td>
+                  <td>${formatCurrency(itemTotal)}</td>
+        </tr>
+              `);
+            });
+            
+            // Set order totals
+            $('#modal-subtotal').text(formatCurrency(subtotal));
+            $('#modal-shipping-fee').text(formatCurrency(response.shipping_fee));
+            $('#modal-tax').text(formatCurrency(response.tax));
+            $('#modal-total').text(formatCurrency(response.total));
+      
+            // Show/hide cancel button based on order status
+            if (orderStatus === 'pending' || orderStatus === 'confirmed') {
+              $('#cancel-order-btn').show();
+      } else {
+              $('#cancel-order-btn').hide();
+      }
+          } else {
+            alert('Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.');
+          }
+        },
+        error: function() {
+          alert('Đã xảy ra lỗi khi tải thông tin đơn hàng. Vui lòng thử lại sau.');
+        }
+      });
     });
+      
+    // Helper function to format currency
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount).replace('₫', 'đ');
+    }
     
-    // Cancel order button
+    // Cancel order functionality
     $('#cancel-order-btn').on('click', function() {
-      const orderId = $('#modal-order-id').text();
+      const orderId = $('.view-order-btn').data('order-id');
       
-      if (confirm(`Are you sure you want to cancel order ${orderId}?`)) {
-        // In a real application, this would send a request to cancel the order
-        alert(`Order ${orderId} has been cancelled`);
-        $('#order-details-modal').modal('hide');
+      if (confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) {
+        $.ajax({
+          url: "{{ route('order.cancel') }}",
+          type: "POST",
+          data: {
+            _token: "{{ csrf_token() }}",
+            id: orderId
+          },
+          success: function(response) {
+            if (response.success) {
+              alert('Đơn hàng đã được hủy thành công.');
+              location.reload();
+            } else {
+              alert(response.message || 'Không thể hủy đơn hàng. Vui lòng thử lại sau.');
+            }
+          },
+          error: function() {
+            alert('Đã xảy ra lỗi khi hủy đơn hàng. Vui lòng thử lại sau.');
+          }
+        });
       }
     });
   });
 </script>
+
+<style>
+.order-payment-status {
+  margin-top: 10px;
+}
+.order-payment-status .label {
+  font-weight: 500;
+  margin-right: 5px;
+}
+</style>
 @endsection

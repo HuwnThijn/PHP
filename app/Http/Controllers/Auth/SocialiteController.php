@@ -118,7 +118,7 @@ class SocialiteController extends Controller
                     }
                 }
                 
-                return redirect()->intended(route('user.home'))
+                return redirect()->intended('/')
                     ->with('success', 'Đăng nhập thành công qua ' . ucfirst($provider) . '!');
             } catch (\Exception $e) {
                 Log::error('Lỗi xử lý OAuth user: ' . $e->getMessage(), [

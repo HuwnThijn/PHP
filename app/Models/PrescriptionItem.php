@@ -24,11 +24,11 @@ class PrescriptionItem extends Model
 
     public function prescription()
     {
-        return $this->belongsTo(Prescription::class);
+        return $this->belongsTo(Prescription::class, 'prescription_id', 'id_prescription');
     }
 
     public function medicine()
     {
-        return $this->belongsTo(Medicine::class);
+        return $this->belongsTo(Medicine::class, 'medicine_id', 'id');
     }
 } 

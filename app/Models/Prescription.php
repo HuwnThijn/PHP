@@ -11,14 +11,18 @@ class Prescription extends Model
     
     protected $primaryKey = 'id_prescription';
     protected $fillable = [
-        'patient_id',
-        'doctor_id',
+        'id_medical_record',
+        'id_patient',
+        'id_doctor',
         'diagnosis',
         'notes',
         'total_amount',
         'status',
         'processed_by',
-        'processed_at'
+        'processed_at',
+        'payment_method',
+        'payment_id',
+        'payment_status'
     ];
     
     protected $casts = [
@@ -26,14 +30,19 @@ class Prescription extends Model
         'total_amount' => 'decimal:2'
     ];
     
+    // Các trạng thái của đơn thuốc
+    const STATUS_PENDING = 'pending';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_CANCELLED = 'cancelled';
+    
     public function patient()
     {
-        return $this->belongsTo(User::class, 'patient_id', 'id_user');
+        return $this->belongsTo(User::class, 'id_patient', 'id_user');
     }
 
     public function doctor()
     {
-        return $this->belongsTo(User::class, 'doctor_id', 'id_user');
+        return $this->belongsTo(User::class, 'id_doctor', 'id_user');
     }
 
     public function processedBy()
@@ -43,6 +52,11 @@ class Prescription extends Model
 
     public function items()
     {
-        return $this->hasMany(PrescriptionItem::class);
+        return $this->hasMany(PrescriptionItem::class, 'prescription_id', 'id_prescription');
+    }
+    
+    public function medicalRecord()
+    {
+        return $this->belongsTo(MedicalRecord::class, 'id_medical_record', 'id_medical_record');
     }
 }

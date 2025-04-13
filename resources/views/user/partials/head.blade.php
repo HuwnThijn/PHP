@@ -6,6 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="Responsive Bootstrap 4 Medical Template">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>O2Skin - Web y tế số 1 VN</title>
 

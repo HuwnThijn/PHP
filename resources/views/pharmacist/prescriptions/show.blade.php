@@ -278,8 +278,8 @@
                 this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
                 
                 try {
-                    // Gọi API tạo intent thanh toán
-                    const response = await fetch('{{ route('pharmacist.prescriptions.payment.intent', $prescription->id_prescription) }}', {
+                    // Thay dòng này
+                    const response = await fetch('/pharmacist/prescriptions/{{ $prescription->id_prescription }}/payment/intent', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -287,11 +287,12 @@
                         }
                     });
                     
+                    // Thêm xử lý khi response không thành công
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Không thể tạo phiên thanh toán');
+                        throw new Error('Không thể kết nối tới máy chủ thanh toán');
                     }
                     
+                    // Phân tích dữ liệu JSON
                     const data = await response.json();
                     
                     // Hiển thị thông tin thanh toán USD nếu có

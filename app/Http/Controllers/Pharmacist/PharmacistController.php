@@ -50,6 +50,8 @@ class PharmacistController extends Controller
             'pendingPrescriptions', 'lowStockItems', 'recentPrescriptions'
         ));
     }
+
+    
     
     // Quản lý đơn thuốc
     public function pendingPrescriptions()
@@ -346,74 +348,46 @@ class PharmacistController extends Controller
     }
     
     /**
-     * Tạo payment intent cho thanh toán qua Stripe
+     * Tạo payment intent cho thanh toán thẻ
+     * 
+     * @param int $id ID của đơn thuốc
+     * @return \Illuminate\Http\JsonResponse
      */
     public function createPaymentIntent($id)
     {
         try {
-            $prescription = Prescription::where('id_prescription', $id)
-                ->with(['items.medicine', 'patient'])
-                ->firstOrFail();
-                
-            if ($prescription->status !== 'pending') {
-                return response()->json(['error' => 'Đơn thuốc này đã được xử lý!'], 400);
-            }
-
+            // Lấy thông tin đơn thuốc
+            $prescription = \App\Models\Prescription::findOrFail($id);
+            
             // Tính tổng tiền
-            $amount = 0;
+            $totalAmount = 0;
             foreach ($prescription->items as $item) {
-                $amount += $item->price * $item->quantity;
-            }
-
-            // Kiểm tra tiền thanh toán hợp lệ
-            if ($amount <= 0) {
-                return response()->json(['error' => 'Số tiền thanh toán không hợp lệ'], 400);
-            }
-
-            // Cấu hình Stripe API key
-            $stripeSecret = config('services.stripe.secret');
-            if (empty($stripeSecret)) {
-                Log::error('Stripe Secret Key không được cấu hình');
-                return response()->json(['error' => 'Lỗi cấu hình thanh toán'], 500);
+                $totalAmount += $item->price * $item->quantity;
             }
             
-            Stripe::setApiKey($stripeSecret);
+            // Tạo payment intent với Stripe
+            \Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
             
-            try {
-                // Chuyển đổi VND sang USD (tỉ giá xấp xỉ: 1 USD = 25,000 VND)
-                $amountUSD = round($amount / 25000, 2);
-                
-                // Kiểm tra giới hạn số tiền tối thiểu
-                if ($amountUSD < 0.5) {
-                    $amountUSD = 0.5; // Stripe yêu cầu giao dịch tối thiểu 0.5 USD
-                }
-                
-                // Tạo payment intent
-                $paymentIntent = PaymentIntent::create([
-                    'amount' => (int)($amountUSD * 100), // Stripe tính bằng xu (100 xu = 1 đô), đảm bảo là số nguyên
-                    'currency' => 'usd',
-                    'description' => 'Thanh toán đơn thuốc #' . $prescription->id_prescription,
-                    'metadata' => [
-                        'prescription_id' => $prescription->id_prescription,
-                        'patient_id' => $prescription->id_patient,
-                        'patient_name' => $prescription->patient->name ?? 'Không xác định',
-                        'original_amount_vnd' => $amount
-                    ]
-                ]);
-                
-                return response()->json([
-                    'clientSecret' => $paymentIntent->client_secret,
-                    'amount_usd' => (int)($amountUSD * 100),
-                    'amount_vnd' => $amount
-                ]);
-            } catch (ApiErrorException $e) {
-                Log::error('Stripe API Error: ' . $e->getMessage());
-                return response()->json(['error' => 'Lỗi API Stripe: ' . $e->getMessage()], 500);
-            }
+            // Chuyển đổi VND sang USD (tỷ lệ khoảng 1 USD = 24,000 VND)
+            $amountUsd = round($totalAmount / 24000 * 100); // Stripe tính bằng cent
+            $amountUsd = max($amountUsd, 50); // Tối thiểu 50 cents ($0.50)
             
+            $paymentIntent = \Stripe\PaymentIntent::create([
+                'amount' => $amountUsd,
+                'currency' => 'usd',
+                'metadata' => [
+                    'prescription_id' => $prescription->id_prescription,
+                    'amount_vnd' => $totalAmount
+                ],
+            ]);
+            
+            return response()->json([
+                'clientSecret' => $paymentIntent->client_secret,
+                'amount_usd' => $amountUsd,
+                'amount_vnd' => $totalAmount
+            ]);
         } catch (\Exception $e) {
-            Log::error('Payment Intent Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Có lỗi xảy ra khi tạo phiên thanh toán: ' . $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
     

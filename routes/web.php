@@ -318,6 +318,7 @@ Route::prefix('pharmacist')->name('pharmacist.')->group(function () {
             Route::get('/{id}', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'showPrescription'])->name('show');
             Route::post('/{id}/process', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'processPrescription'])->name('process');
             Route::get('/{id}/print', [App\Http\Controllers\Pharmacist\PharmacistController::class, 'printPrescription'])->name('print');
+            Route::post('/{id}/payment/intent', [PharmacistController::class, 'createPaymentIntent'])->name('prescriptions.payment.intent');
         });
         
         // Tiếp nhận bệnh nhân và đơn thuốc

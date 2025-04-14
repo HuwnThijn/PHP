@@ -173,7 +173,7 @@
                             <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;">
                                 <!-- Stripe Element sẽ được chèn vào đây -->
                             </div>
-                            
+                            <div id="card-errors" class="text-danger mt-2"></div>
                         </div>
                     </div>
                     
@@ -278,7 +278,9 @@
                 this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
                 
                 try {
-                    // Thay dòng này
+                    // Thêm đoạn log để debug
+                    console.log('Đang gửi yêu cầu thanh toán đến:', '/pharmacist/prescriptions/{{ $prescription->id_prescription }}/payment/intent');
+                    
                     const response = await fetch('/pharmacist/prescriptions/{{ $prescription->id_prescription }}/payment/intent', {
                         method: 'POST',
                         headers: {
@@ -287,13 +289,17 @@
                         }
                     });
                     
-                    // Thêm xử lý khi response không thành công
+                    // Thêm đoạn log để debug response
+                    console.log('Nhận phản hồi:', response);
+                    
                     if (!response.ok) {
-                        throw new Error('Không thể kết nối tới máy chủ thanh toán');
+                        const errorText = await response.text();
+                        console.error('Lỗi từ server:', errorText);
+                        throw new Error('Không thể kết nối tới máy chủ thanh toán: ' + errorText);
                     }
                     
-                    // Phân tích dữ liệu JSON
                     const data = await response.json();
+                    console.log('Dữ liệu thanh toán:', data);
                     
                     // Hiển thị thông tin thanh toán USD nếu có
                     if (data.amount_usd) {
@@ -324,8 +330,8 @@
                         form.submit();
                     }
                 } catch (error) {
-                    console.error('Error during payment:', error);
-                    document.getElementById('card-errors').textContent = 'Có lỗi xảy ra trong quá trình thanh toán: ' + error.message;
+                    console.error('Lỗi xử lý thanh toán:', error);
+                    document.getElementById('card-errors').innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
                     this.disabled = false;
                     this.innerHTML = '<i class="fas fa-check"></i> Xác nhận và xuất thuốc';
                 }

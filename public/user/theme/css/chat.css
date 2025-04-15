@@ -1,0 +1,118 @@
+.chat-widget {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 350px;
+    height: 450px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    display: none;
+}
+
+.chat-header {
+    padding: 15px;
+    background-color: #2ca9db;
+    color: white;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close-chat {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.chat-body {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    max-width: 80%;
+}
+
+.chat-message.user {
+    margin-left: auto;
+}
+
+.chat-message.bot {
+    margin-right: auto;
+}
+
+.message-content {
+    padding: 10px 15px;
+    border-radius: 20px;
+    background-color: #f0f0f0;
+}
+
+.chat-message.user .message-content {
+    background-color: #2ca9db;
+    color: white;
+}
+
+.chat-footer {
+    padding: 10px 15px;
+    border-top: 1px solid #eee;
+    display: flex;
+}
+
+.chat-footer input {
+    flex: 1;
+    padding: 8px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    margin-right: 10px;
+}
+
+.chat-footer button {
+    padding: 8px 15px;
+    background-color: #2ca9db;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.chat-launcher {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background-color: #2ca9db;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 999;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+.typing-indicator .message-content {
+    display: flex;
+    align-items: center;
+}
+
+.typing-indicator .message-content::after {
+    content: "...";
+    animation: typing 1.5s infinite;
+}
+
+@keyframes typing {
+    0% { content: "."; }
+    33% { content: ".."; }
+    66% { content: "..."; }
+} 

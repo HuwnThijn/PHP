@@ -1,0 +1,9 @@
+/node_modules
+/vendor
+.env
+.env.backup
+.env.production
+.venv/.env
+*.h5
+*.keras
+Agent/skin_disease_model/
